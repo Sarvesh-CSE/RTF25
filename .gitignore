@@ -1,3 +1,7 @@
+# Optional: Ignore all CSV files in the directory
+*.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
