@@ -4,10 +4,23 @@ import random
 class DataGenerator:
     def __init__(self, num_entries=10):
         self.num_entries = num_entries
-        self.roles = [1, 2, 3, 4, 5] # Employee roles with increasing seniority
-        self.states = ['NC', 'CA', 'NY', 'TX', 'FL']
-        self.zips = [27708, 95616, 10001, 73301, 33101]
+        self.roles = [1, 2, 3, 4, 5]  # Employee roles with increasing seniority
         self.depts = ['CS', 'Eng', 'HR', 'Sales']
+
+        # We are not doing this anymore
+        # self.states = ['NC', 'CA', 'NY', 'TX', 'FL']
+        # self.zips = [27708, 95616, 10001, 73301, 33101]
+
+
+
+        # Define a mapping of states to their respective ZIP codes
+        self.state_zip_mapping = {
+            'NC': [27708, 27514, 27601],
+            'CA': [95616, 90001, 94101],
+            'NY': [10001, 11201, 12201],
+            'TX': [73301, 75001, 77001],
+            'FL': [33101, 32801, 33601]
+        }
         self.employee_data = []
         self.payroll_data = []
         self.tax_data = []
@@ -20,9 +33,9 @@ class DataGenerator:
             {
                 'EId': i,
                 'Name': f'Employee_{i}',
-                'ZIP': random.choice(self.zips),
-                'State': random.choice(self.states),
-                'Role': random.choice(self.roles) # Role assigned randomly
+                'State': (state := random.choice(list(self.state_zip_mapping.keys()))),
+                'ZIP': random.choice(self.state_zip_mapping[state]),
+                'Role': random.choice(self.roles)  # Role assigned randomly
             }
             for i in range(1, self.num_entries + 1)
         ]
@@ -36,7 +49,6 @@ class DataGenerator:
         self.payroll_data = [
             {
                 'EId': i,
-                # Ensures 𝜙₄: Role 1 cannot have SalPrHr > 100
                 'SalPrHr': random.randint(50, 100) if emp['Role'] == 1 else random.randint(100 * emp['Role'], 200 * emp['Role']),
                 'WrkHr': random.randint(20, 40),
                 'Dept': random.choice(self.depts)
@@ -44,7 +56,6 @@ class DataGenerator:
             for i, emp in enumerate(self.employee_data, start=1)
         ]
 
-    
     def generate_tax_data(self):
         """
         Generate tax data ensuring:
@@ -55,7 +66,6 @@ class DataGenerator:
         self.tax_data = [
             {
                 'EId': emp['EId'],
-                # Ensures 𝜙₃: Salary is correctly calculated
                 'Salary': (salary := emp['SalPrHr'] * emp['WrkHr']),
                 'Type': 'Full' if salary >= 5000 else 'Part',
                 'Tax': int(salary * 0.2)  # Tax calculated as 20% of salary
@@ -63,18 +73,21 @@ class DataGenerator:
             for emp in self.payroll_data
         ]
 
-
     def export_to_csv(self):
         """
         Export generated data to CSV files and print the first few rows for verification.
         """
-        pd.DataFrame(self.employee_data).to_csv('employee.csv', index=False)
-        pd.DataFrame(self.payroll_data).to_csv('payroll.csv', index=False)
-        pd.DataFrame(self.tax_data).to_csv('tax.csv', index=False)
+        employee_df = pd.DataFrame(self.employee_data)
+        payroll_df = pd.DataFrame(self.payroll_data)
+        tax_df = pd.DataFrame(self.tax_data)
 
-        print("Employee Table:\n", pd.DataFrame(self.employee_data).head())
-        print("\nPayroll Table:\n", pd.DataFrame(self.payroll_data).head())
-        print("\nTax Table:\n", pd.DataFrame(self.tax_data).head())
+        employee_df.to_csv('employee.csv', index=False)
+        payroll_df.to_csv('payroll.csv', index=False)
+        tax_df.to_csv('tax.csv', index=False)
+
+        print("Employee Table:\n", employee_df.head())
+        print("\nPayroll Table:\n", payroll_df.head())
+        print("\nTax Table:\n", tax_df.head())
 
     def generate_all(self):
         """
