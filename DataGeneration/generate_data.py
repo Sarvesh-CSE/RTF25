@@ -13,6 +13,9 @@ class DataGenerator:
         self.tax_data = []
 
     def generate_employee_data(self):
+        """
+        Generate basic employee data with random ZIP, State, and Role.
+        """
         self.employee_data = [
             {
                 'EId': i,
@@ -25,6 +28,11 @@ class DataGenerator:
         ]
 
     def generate_payroll_data(self):
+        """
+        Generate payroll data ensuring:
+        - 𝜙₄: If Role == 1, then SalPrHr must be <= 100.
+        - For higher roles, SalPrHr is proportionally higher.
+        """
         self.payroll_data = [
             {
                 'EId': i,
@@ -36,18 +44,30 @@ class DataGenerator:
             for i, emp in enumerate(self.employee_data, start=1)
         ]
 
+    
+    def generate_tax_data(self):
+        """
+        Generate tax data ensuring:
+        - 𝜙₃: Salary must be calculated as SalPrHr * WrkHr.
+        - Tax is computed as 20% of Salary.
+        - Employment type is Full if Salary >= 5000, else Part.
+        """
         self.tax_data = [
             {
-                'EId': i,
+                'EId': emp['EId'],
                 # Ensures 𝜙₃: Salary is correctly calculated
                 'Salary': (salary := emp['SalPrHr'] * emp['WrkHr']),
                 'Type': 'Full' if salary >= 5000 else 'Part',
                 'Tax': int(salary * 0.2)  # Tax calculated as 20% of salary
             }
-            for i, emp in enumerate(self.payroll_data, start=1)
+            for emp in self.payroll_data
         ]
 
+
     def export_to_csv(self):
+        """
+        Export generated data to CSV files and print the first few rows for verification.
+        """
         pd.DataFrame(self.employee_data).to_csv('employee.csv', index=False)
         pd.DataFrame(self.payroll_data).to_csv('payroll.csv', index=False)
         pd.DataFrame(self.tax_data).to_csv('tax.csv', index=False)
@@ -57,6 +77,11 @@ class DataGenerator:
         print("\nTax Table:\n", pd.DataFrame(self.tax_data).head())
 
     def generate_all(self):
+        """
+        Sequentially generate all datasets and ensure constraints are followed.
+        - 𝜙₁: Higher tax should not correspond to lower salary.
+        - 𝜙₂: Higher roles must have higher or equal SalPrHr.
+        """
         self.generate_employee_data()
         self.generate_payroll_data()
         self.generate_tax_data()
