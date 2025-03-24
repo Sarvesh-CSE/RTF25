@@ -1,5 +1,6 @@
 import pandas as pd
 import random
+import mysql.connector
 
 class DataGenerator:
     def __init__(self, num_entries=10):
@@ -73,7 +74,7 @@ class DataGenerator:
             for emp in self.payroll_data
         ]
 
-    def export_to_csv(self):
+    def export_to_db(self):
         """
         Export generated data to CSV files and print the first few rows for verification.
         """
@@ -81,9 +82,70 @@ class DataGenerator:
         payroll_df = pd.DataFrame(self.payroll_data)
         tax_df = pd.DataFrame(self.tax_data)
 
-        employee_df.to_csv('employee.csv', index=False)
-        payroll_df.to_csv('payroll.csv', index=False)
-        tax_df.to_csv('tax.csv', index=False)
+
+        # Establish a connection to the MySQL database
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='uci@dbh@2084',
+            database='RTF25'
+        )
+        cursor = connection.cursor()
+
+        # Create tables for employee, payroll, and tax data
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Employee (
+            EId INT PRIMARY KEY,
+            Name VARCHAR(255),
+            State VARCHAR(2),
+            ZIP INT,
+            Role INT
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Payroll (
+            EId INT PRIMARY KEY,
+            SalPrHr INT,
+            WrkHr INT,
+            Dept VARCHAR(255),
+            FOREIGN KEY (EId) REFERENCES Employee(EId)
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Tax (
+            EId INT PRIMARY KEY,
+            Salary INT,
+            Type VARCHAR(10),
+            Tax INT,
+            FOREIGN KEY (EId) REFERENCES Employee(EId)
+        )
+        """)
+
+        # Insert data into the Employee table
+        for emp in self.employee_data:
+            cursor.execute("""
+            INSERT INTO Employee (EId, Name, State, ZIP, Role)
+            VALUES (%s, %s, %s, %s, %s)
+            """, (emp['EId'], emp['Name'], emp['State'], emp['ZIP'], emp['Role']))
+
+        # Insert data into the Payroll table
+        for payroll in self.payroll_data:
+            cursor.execute("""
+            INSERT INTO Payroll (EId, SalPrHr, WrkHr, Dept)
+            VALUES (%s, %s, %s, %s)
+            """, (payroll['EId'], payroll['SalPrHr'], payroll['WrkHr'], payroll['Dept']))
+
+        # Insert data into the Tax table
+        for tax in self.tax_data:
+            cursor.execute("""
+            INSERT INTO Tax (EId, Salary, Type, Tax)
+            VALUES (%s, %s, %s, %s)
+            """, (tax['EId'], tax['Salary'], tax['Type'], tax['Tax']))
+
+        # Commit the transaction and close the connection
+        connection.commit()
+        cursor.close()
+        connection.close()
 
         print("Employee Table:\n", employee_df.head())
         print("\nPayroll Table:\n", payroll_df.head())
@@ -98,7 +160,7 @@ class DataGenerator:
         self.generate_employee_data()
         self.generate_payroll_data()
         self.generate_tax_data()
-        self.export_to_csv()
+        self.export_to_db()
 
 # Generate and export the data
 if __name__ == "__main__":
