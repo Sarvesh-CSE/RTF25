@@ -1,0 +1,1 @@
+# Using the DC lookup table, this script generates the inference grapgh for target cell c.
