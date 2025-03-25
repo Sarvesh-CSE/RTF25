@@ -121,8 +121,17 @@ class DataGenerator:
         )
         """)
 
+        # Delete all existing rows in the dependent tables first
+        cursor.execute("DELETE FROM Payroll")
+        cursor.execute("DELETE FROM Tax")
+
+        # Delete all existing rows in the Employee table
+        cursor.execute("DELETE FROM Employee")
+
         # Insert data into the Employee table
         for emp in self.employee_data:
+
+            # Insert data into the Employee table
             cursor.execute("""
             INSERT INTO Employee (EId, Name, State, ZIP, Role)
             VALUES (%s, %s, %s, %s, %s)
@@ -166,3 +175,83 @@ class DataGenerator:
 if __name__ == "__main__":
     generator = DataGenerator(num_entries=10)
     generator.generate_all()
+        # Establish a connection to the MySQL database
+    connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='uci@dbh@2084',
+            database='RTF25'
+        )
+    cursor = connection.cursor()
+
+    # Fetch the state of Employee, Payroll, and Tax tables
+    database_state = {
+        "Employee": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Employee") or cursor.fetchall()],
+            "Name": [row[0] for row in cursor.execute("SELECT Name FROM Employee") or cursor.fetchall()],
+            "Role": [row[0] for row in cursor.execute("SELECT Role FROM Employee") or cursor.fetchall()]
+        },
+        "Payroll": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Payroll") or cursor.fetchall()],
+            "SalPrHr": [row[0] for row in cursor.execute("SELECT SalPrHr FROM Payroll") or cursor.fetchall()],
+            "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll") or cursor.fetchall()]
+        },
+        "Tax": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Tax") or cursor.fetchall()],
+            "Salary": [row[0] for row in cursor.execute("SELECT Salary FROM Tax") or cursor.fetchall()],
+            "Tax": [row[0] for row in cursor.execute("SELECT Tax FROM Tax") or cursor.fetchall()]
+        }
+    }
+
+    delset = {"Salary", "Tax", "Role", "WorkHr"}
+    # The target cell will be used to generate the inference graph.
+    # Steps to achieve this:
+    # 1. The `delset` represents a superset of the cells that are being deleted.
+    # 2. Instead of pulling the entire column from the database, we will:
+    #    a. Filter the cells for the columns in the `delset`.
+    #    b. Pull only the relevant data from the database.
+    # 3. Use the `delset` to generate the inference graph.
+    # 4. The inference graph will help identify the target `delset` for a specific target cell.
+    # 5. The target `delset` will then be used to compute dependencies and relationships.
+
+    # Step 1: Filter the columns in the `delset` and fetch relevant data
+    filtered_data = {}
+    for table_name, table_data in database_state.items():
+        filtered_data[table_name] = {
+            col: table_data[col]
+            for col in table_data.keys() if col in delset
+        }
+
+    # Step 2: Generate the inference graph
+    inference_graph = {}
+    for table_name, columns in filtered_data.items():
+        for col, values in columns.items():
+            inference_graph[f"{table_name}.{col}"] = values
+
+    # Step 3: Identify the target `delset` for a specific target cell
+    target_delset = {
+        key: values for key, values in inference_graph.items() if key.split(".")[1] in delset
+    }
+
+    # Step 4: Compute dependencies and relationships
+    dependencies = {}
+    for key, values in target_delset.items():
+        table, column = key.split(".")
+        dependencies[key] = {
+            "table": table,
+            "column": column,
+            "related_values": values
+        }
+
+    # Print the dependencies for verification
+    print("Dependencies and Relationships:")
+    for key, dep in dependencies.items():
+        print(f"{key}: {dep}")
+
+    no_auto_delset = {
+        attr for table in database_state.values() for attr in table.keys()
+    } - delset
+    print(no_auto_delset)
+
+    # Close the database connection
+    connection.close()
