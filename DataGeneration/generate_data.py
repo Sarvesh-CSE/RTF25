@@ -189,21 +189,25 @@ if __name__ == "__main__":
         "Employee": {
             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Employee") or cursor.fetchall()],
             "Name": [row[0] for row in cursor.execute("SELECT Name FROM Employee") or cursor.fetchall()],
+            "State": [row[0] for row in cursor.execute("SELECT State FROM Employee") or cursor.fetchall()],
+            "ZIP": [row[0] for row in cursor.execute("SELECT ZIP FROM Employee") or cursor.fetchall()],
             "Role": [row[0] for row in cursor.execute("SELECT Role FROM Employee") or cursor.fetchall()]
         },
         "Payroll": {
             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Payroll") or cursor.fetchall()],
             "SalPrHr": [row[0] for row in cursor.execute("SELECT SalPrHr FROM Payroll") or cursor.fetchall()],
-            "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll") or cursor.fetchall()]
+            "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll") or cursor.fetchall()],
+            "Dept": [row[0] for row in cursor.execute("SELECT Dept FROM Payroll") or cursor.fetchall()]
         },
         "Tax": {
             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Tax") or cursor.fetchall()],
             "Salary": [row[0] for row in cursor.execute("SELECT Salary FROM Tax") or cursor.fetchall()],
+            "Type": [row[0] for row in cursor.execute("SELECT Type FROM Tax") or cursor.fetchall()],
             "Tax": [row[0] for row in cursor.execute("SELECT Tax FROM Tax") or cursor.fetchall()]
         }
     }
 
-    delset = {"Salary", "Tax", "Role", "WorkHr"}
+    delset = {"Salary", "Tax", "Role", "WrkHr"}
     # The target cell will be used to generate the inference graph.
     # Steps to achieve this:
     # 1. The `delset` represents a superset of the cells that are being deleted.
@@ -251,7 +255,7 @@ if __name__ == "__main__":
     no_auto_delset = {
         attr for table in database_state.values() for attr in table.keys()
     } - delset
-    print(no_auto_delset)
+    print("Non-deletable columns are:", no_auto_delset)
 
     # Close the database connection
     connection.close()
