@@ -184,48 +184,66 @@ if __name__ == "__main__":
         )
     cursor = connection.cursor()
 
-    # Fetch the state of Employee, Payroll, and Tax tables
-    database_state = {
-        "Employee": {
-            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Employee") or cursor.fetchall()],
-            "Name": [row[0] for row in cursor.execute("SELECT Name FROM Employee") or cursor.fetchall()],
-            "State": [row[0] for row in cursor.execute("SELECT State FROM Employee") or cursor.fetchall()],
-            "ZIP": [row[0] for row in cursor.execute("SELECT ZIP FROM Employee") or cursor.fetchall()],
-            "Role": [row[0] for row in cursor.execute("SELECT Role FROM Employee") or cursor.fetchall()]
-        },
-        "Payroll": {
-            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Payroll") or cursor.fetchall()],
-            "SalPrHr": [row[0] for row in cursor.execute("SELECT SalPrHr FROM Payroll") or cursor.fetchall()],
-            "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll") or cursor.fetchall()],
-            "Dept": [row[0] for row in cursor.execute("SELECT Dept FROM Payroll") or cursor.fetchall()]
-        },
-        "Tax": {
-            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Tax") or cursor.fetchall()],
-            "Salary": [row[0] for row in cursor.execute("SELECT Salary FROM Tax") or cursor.fetchall()],
-            "Type": [row[0] for row in cursor.execute("SELECT Type FROM Tax") or cursor.fetchall()],
-            "Tax": [row[0] for row in cursor.execute("SELECT Tax FROM Tax") or cursor.fetchall()]
-        }
-    }
 
     delset = {"Salary", "Tax", "Role", "WrkHr"}
-    # The target cell will be used to generate the inference graph.
-    # Steps to achieve this:
-    # 1. The `delset` represents a superset of the cells that are being deleted.
-    # 2. Instead of pulling the entire column from the database, we will:
-    #    a. Filter the cells for the columns in the `delset`.
-    #    b. Pull only the relevant data from the database.
-    # 3. Use the `delset` to generate the inference graph.
-    # 4. The inference graph will help identify the target `delset` for a specific target cell.
-    # 5. The target `delset` will then be used to compute dependencies and relationships.
+    target_eid = 2
+    # Update the Salary of EID 2 to NULL in the Tax table
+    if "Salary" in delset:
+        cursor.execute("UPDATE Tax SET Salary = NULL WHERE EID = %s", (target_eid,))
+        connection.commit()
+        print(f"Salary for EID {target_eid} has been set to NULL.")
 
-    # Step 1: Filter the columns in the `delset` and fetch relevant data
+    # Fetch the state of Employee, Payroll, and Tax tables
+    # Fetch only the rows associated with EID 2 across the database
+    database_state = {
+        "Employee": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Name": [row[0] for row in cursor.execute("SELECT Name FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "State": [row[0] for row in cursor.execute("SELECT State FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "ZIP": [row[0] for row in cursor.execute("SELECT ZIP FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Role": [row[0] for row in cursor.execute("SELECT Role FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
+        },
+        "Payroll": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "SalPrHr": [row[0] for row in cursor.execute("SELECT SalPrHr FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Dept": [row[0] for row in cursor.execute("SELECT Dept FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
+        },
+        "Tax": {
+            "EID": [row[0] for row in cursor.execute("SELECT EID FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Salary": [row[0] for row in cursor.execute("SELECT Salary FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Type": [row[0] for row in cursor.execute("SELECT Type FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
+            "Tax": [row[0] for row in cursor.execute("SELECT Tax FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
+        }
+    }
+    print("Pulled in Database State w.r.t. target cell C:")
+    for table, columns in database_state.items():
+        print(f"{table}:")
+        for col, data in columns.items():
+            print(f"{col}: {data}")
+
+
+
+    # Step 1: Filter the columns in the `delset` and fetch only relevant columns for each table from the database state
+    # We can incorporate this logic while pulling the data from the database itself by restricting the columns. However, we are doing it here for demonstration purposes.
     filtered_data = {}
     for table_name, table_data in database_state.items():
         filtered_data[table_name] = {
             col: table_data[col]
             for col in table_data.keys() if col in delset
         }
+    print("Filtered Data:")
+    for table, columns in filtered_data.items():
+        print(f"{table}:")
+        for col, data in columns.items():
+            print(f"{col}: {data}")
+    # At this point, we have only those cells and their values that are part of the `delset` for a given target cell C.
 
+    # Mark the target cell explicitly in the filtered data
+    target_cell = {"Tax.Salary": None}  # The cell set to NULL in line 213-214
+    filtered_data["Tax"]["Salary"] = [None]  # Reflect the NULL value in the filtered data
+
+    
     # Step 2: Generate the inference graph
     inference_graph = {}
     for table_name, columns in filtered_data.items():
@@ -259,3 +277,4 @@ if __name__ == "__main__":
 
     # Close the database connection
     connection.close()
+
