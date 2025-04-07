@@ -4,7 +4,7 @@ import pandas as pd
 import random
 import networkx as nx
 import csv
-from generate_data import database_state
+from RTF25.DataGeneration.proess_data import database_state
 import sqlite3
 
 def generate_lookup_table(denial_constraints):
