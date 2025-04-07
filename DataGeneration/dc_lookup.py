@@ -19,3 +19,12 @@ def generate_lookup_table():
             lookup_table[attr].add(dc_label)
 
     return lookup_table
+
+def print_lookup_table(lookup_table):
+    for attr, dcs in lookup_table.items():
+        print(f"Attribute: {attr}, Denial Constraints: {', '.join(dcs)}")
+
+lookup_table = generate_lookup_table()
+print_lookup_table(lookup_table)
+# The output will show the attributes and the corresponding denial constraints associated with them.
+# This lookup table can be used to quickly identify which denial constraints are relevant for a given attribute.

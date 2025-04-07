@@ -94,63 +94,9 @@ class DataGenerator:
         self.export_to_db()
 
 
-# def fetch_database_state(target_eid, delset):
-#     connection = mysql.connector.connect(
-#         host='localhost',
-#         user='root',
-#         password='uci@dbh@2084',
-#         database='RTF25'
-#     )
-#     cursor = connection.cursor()
-
-#     database_state = {
-#         "Employee": {
-#             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Name": [row[0] for row in cursor.execute("SELECT Name FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "State": [row[0] for row in cursor.execute("SELECT State FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "ZIP": [row[0] for row in cursor.execute("SELECT ZIP FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Role": [row[0] for row in cursor.execute("SELECT Role FROM Employee WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
-#         },
-#         "Payroll": {
-#             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "SalPrHr": [row[0] for row in cursor.execute("SELECT SalPrHr FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "WrkHr": [row[0] for row in cursor.execute("SELECT WrkHr FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Dept": [row[0] for row in cursor.execute("SELECT Dept FROM Payroll WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
-#         },
-#         "Tax": {
-#             "EID": [row[0] for row in cursor.execute("SELECT EID FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Salary": [row[0] for row in cursor.execute("SELECT Salary FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Type": [row[0] for row in cursor.execute("SELECT Type FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()],
-#             "Tax": [row[0] for row in cursor.execute("SELECT Tax FROM Tax WHERE EID = %s", (target_eid,)) or cursor.fetchall()]
-#         }
-#     }
-
-#     connection.close()
-#     return database_state
-
-
-# def filter_data(database_state, delset):
-#     return {
-#         table: {
-#             col: [value for value in table_data[col] if value is not None]
-#             for col in table_data.keys() if col in delset and f"{table}.{col}" != "Tax.Salary"
-#         }
-#         for table, table_data in database_state.items()
-#     }
-
-
-# def get_target_cell_location(database_state, target_eid):
-#     for table, columns in database_state.items():
-#         if "Salary" in columns and columns["Salary"] == [None]:
-#             return {"table": table, "column": "Salary", "row": target_eid}
-#     return None
-
 
 if __name__ == "__main__":
     generator = DataGenerator(num_entries=10)
     generator.generate_all()
 
 
-
-    # print("Filtered Data:", filtered_data)
-    # print("Target Cell Location:", target_cell_location)
