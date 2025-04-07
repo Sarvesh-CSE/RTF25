@@ -19,6 +19,13 @@ def fetch_database_state(target_eid, delset):
     )
     cursor = connection.cursor()
 
+    
+    target_eid = 2
+     # Update the Salary of EID 2 to NULL in the Tax table
+    if "Salary" in delset:
+         cursor.execute("UPDATE Tax SET Salary = NULL WHERE EID = %s", (target_eid,))
+         connection.commit()
+         print(f"Salary for EID {target_eid} has been set to NULL.")
     # Fetch the state of Employee, Payroll, and Tax tables for the given EID
     database_state = {
         "Employee": {

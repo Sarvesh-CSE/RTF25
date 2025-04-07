@@ -139,11 +139,11 @@ class DataGenerator:
 #     }
 
 
-def get_target_cell_location(database_state, target_eid):
-    for table, columns in database_state.items():
-        if "Salary" in columns and columns["Salary"] == [None]:
-            return {"table": table, "column": "Salary", "row": target_eid}
-    return None
+# def get_target_cell_location(database_state, target_eid):
+#     for table, columns in database_state.items():
+#         if "Salary" in columns and columns["Salary"] == [None]:
+#             return {"table": table, "column": "Salary", "row": target_eid}
+#     return None
 
 
 if __name__ == "__main__":
