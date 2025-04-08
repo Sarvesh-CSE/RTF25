@@ -3,8 +3,6 @@ from dc_lookup import generate_lookup_table
 from proess_data import fetch_database_state, filter_data, get_target_cell_location, delset, target_eid
 
 
-
-
 print(delset)
 database_state = fetch_database_state(target_eid, delset)
 filtered_data = filter_data(database_state, delset)
