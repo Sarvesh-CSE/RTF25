@@ -1,7 +1,8 @@
 import mysql.connector
 
-# Global declaration of delset
+# Global declaration of delset and target_eid
 delset = {"Salary", "Tax", "Role", "WrkHr"}
+target_eid = 2
 
 def fetch_database_state(target_eid, delset):
     """
@@ -19,9 +20,6 @@ def fetch_database_state(target_eid, delset):
     )
     cursor = connection.cursor()
 
-    
-    target_eid = 2
-     # Update the Salary of EID 2 to NULL in the Tax table
     if "Salary" in delset:
          cursor.execute("UPDATE Tax SET Salary = NULL WHERE EID = %s", (target_eid,))
          connection.commit()
@@ -87,3 +85,14 @@ def get_target_cell_location(database_state, target_eid):
     return target_cell_location
 
 # You can add more functions or logic as necessary
+
+
+
+# # Update the Salary of EID 2 to NULL in the Tax table
+# database_state = fetch_database_state(target_eid, delset)
+# print("Database State:", database_state)
+# filtered_data = filter_data(database_state, delset) 
+# print("Filtered Data:", filtered_data)
+# target_cell_location = get_target_cell_location(database_state, target_eid)
+# print("Target Cell Location:", target_cell_location)
+
