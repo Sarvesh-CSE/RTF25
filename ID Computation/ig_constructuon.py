@@ -10,6 +10,7 @@ database_state = fetch_database_state(target_eid, delset)
 filtered_data = filter_data(database_state, delset)
 target_cell_location = get_target_cell_location(database_state, target_eid)
 
+print("Database State:", database_state)
 print("Filtered Data:", filtered_data)
 print("Target Cell Location:", target_cell_location)
 

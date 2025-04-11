@@ -1,15 +1,24 @@
 
+from proess_data import fetch_database_state, filter_data, get_target_cell_location, delset, target_eid
+
 from typing import List, Tuple, Union, Set
 
 Interval = Tuple[int, int]  # A numerical range
 Domain = Union[List[Interval], Set[str]]  # Could be range (for numeric) or set (for categorical)
 Cell = Tuple[int, str] # a Cell should be a tuple of one integer and one string (like eid= 2, attr= "salary")
 
+print(delset)
+print("Target EID:", target_eid)
+delset_actual = set()
+for cell in delset:
+    delset_actual.add((target_eid, cell))
+print("Delset Actual:", delset_actual)
+
 def get_global_domain(Dt: dict, attr: str, delset: Set[Cell]) -> Domain:
     values = set()
     for t in Dt:
         cell = (t, attr)
-        if cell not in delset and Dt[t].get(attr) is not None:
+        if cell not in delset or Dt[t].get(attr) is not None:
             values.add(Dt[t][attr])
 
     if values:
