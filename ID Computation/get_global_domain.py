@@ -3,8 +3,9 @@ from typing import List, Tuple, Union, Set
 
 Interval = Tuple[int, int]  # A numerical range
 Domain = Union[List[Interval], Set[str]]  # Could be range (for numeric) or set (for categorical)
+Cell = Tuple[int, str] # a Cell should be a tuple of one integer and one string (like eid= 2, attr= "salary")
 
-def get_global_domain(Dt: dict, attr: str, delset: Set[Tuple[int, str]]) -> Domain:
+def get_global_domain(Dt: dict, attr: str, delset: Set[Cell]) -> Domain:
     values = set()
     for t in Dt:
         cell = (t, attr)
