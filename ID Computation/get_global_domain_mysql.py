@@ -1,4 +1,6 @@
 import mysql.connector
+import json
+import os
 
 class AttributeDomainComputation:
     def __init__(self):
@@ -64,16 +66,62 @@ class AttributeDomainComputation:
 
         cursor.close()
         connection.close()
+        print("Attribute domain computation completed.") 
+        print("Domain map populated.")
+           
+    def save_domain_map(self, filepath="domain_map.json"):
+        with open(filepath, 'w') as f:
+            json.dump({f"{k[0]}.{k[1]}": v for k, v in self.domain_map.items()}, f, indent=2)
+        print("Saving to:", filepath)
 
-    def get_domain(self, table, column):
-        return self.domain_map.get((table, column))
+
+    def load_domain_map(self, filepath="domain_map.json"):
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, 'r') as f:
+                    flat_map = json.load(f)
+                self.domain_map = {tuple(k.split('.')): v for k, v in flat_map.items()}
+                print(f"Domain map loaded from {filepath}")
+            except json.JSONDecodeError as e:
+                print(f"Error reading {filepath}: {e}. Recomputing domain map...")
+                self.compute_attribute_domain()
+                self.save_domain_map(filepath)
+        else:
+            raise FileNotFoundError(f"No domain map found at {filepath}")
+    
+    # def get_domain(self, table, column):
+    #     if not self.domain_map:
+    #         raise ValueError("Domain map is empty. Run compute_attribute_domain() first.")
+    #     return self.domain_map.get((table, column))
+    
+    def get_domain(self, table, column, domain_file="domain_map.json"):
+        # print(os.getcwd())
+        key = (table, column)
+
+        # Load if domain_map is empty
+        if not self.domain_map:
+            try:
+                self.load_domain_map(domain_file)
+            except FileNotFoundError:
+                print(f"Domain map file '{domain_file}' not found. Computing domain map...")
+                self.compute_attribute_domain()
+                self.save_domain_map(domain_file)
+
+        # If key still not found, recompute and save
+        if key not in self.domain_map:
+            print(f"Domain for {key} not found. Recomputing full domain map...")
+            self.compute_attribute_domain()
+            self.save_domain_map(domain_file)
+
+        return self.domain_map.get(key)
+
 
 
 if __name__ == "__main__":
-    ad_computation = AttributeDomainComputation()
-    ad_computation.compute_attribute_domain()
+    adc = AttributeDomainComputation()
+    # adc.compute_attribute_domain() # <-- runs once to populate the map and save to file
 
     # Example usage
     print("\nAccessing Domain:")
-    print("Payroll.SalPrHr:", ad_computation.get_domain("Payroll", "SalPrHr"))
-    print("Employee.State:", ad_computation.get_domain("Employee", "State"))
+    print("Payroll.SalPrHr:", adc.get_domain("Payroll", "Dept"))  # <-- only reads from the map
+    print("Employee.State:", adc.get_domain("Employee", "State"))
