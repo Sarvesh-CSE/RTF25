@@ -1,3 +1,6 @@
+from proess_data import fetch_database_state, filter_data, get_target_cell_location, delset, target_eid
+from dc_lookup import generate_lookup_table
+
 class InferenceGraph:
     def __init__(self, db_state, delset, lookup_table, default_domains):
         self.db_state = db_state
@@ -79,20 +82,14 @@ db_state = {
     "SalPrHr": None,
     "WrkHr": 40
 }
-
-delset = ["Salary", "SalPrHr", "WrkHr"]
-
-lookup_table = {
-    "Salary": [{"Role", "SalPrHr"}],  # Constraint involving Salary and other attributes
-    "SalPrHr": [{"Role", "Salary"}],
-    "WrkHr": [{"Salary", "SalPrHr"}]
-}
+lookup_table = generate_lookup_table()
 
 default_domains = {
     "Salary": {3000, 4000, 5000},  # Possible values for Salary (set for categorical type)
     "SalPrHr": {10, 20, 30},
     "WrkHr": {20, 40, 60}
 }
+
 
 # Instantiate the InferenceGraph class
 inference_graph = InferenceGraph(db_state, delset, lookup_table, default_domains)
