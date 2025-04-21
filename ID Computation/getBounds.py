@@ -1,7 +1,7 @@
 from proess_data import target_eid
 import mysql.connector
 
-class DomainInferer:
+class DomainInfer:
     def __init__(self, host='localhost', user='root', password='uci@dbh@2084', database='RTF25'):
         self.config = {
             'host': host,
@@ -66,15 +66,15 @@ class DomainInferer:
     
 
 
-inferer = DomainInferer()
+infer = DomainInfer()
 
 # Step 1: Get known value for the target row
-temp_val = inferer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='EID', key_val=target_eid)
+temp_val = infer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='EID', key_val=target_eid)
 
 # Step 2: Infer bounds for missing Salary
-bounds = inferer.get_bounds_int_int(target_attr='Salary', known_attr='Tax', known_value=temp_val, table_name='Tax')
+bounds = infer.get_bounds_int_int(target_attr='Salary', known_attr='Tax', known_value=temp_val, table_name='Tax')
 
 print(f"Inferred domain for Salary: {bounds}")
 
-inferer.close()
+infer.close()
 
