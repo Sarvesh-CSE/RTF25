@@ -1,5 +1,6 @@
 from proess_data import fetch_database_state, filter_data, get_target_cell_location, delset, target_eid
 from dc_lookup import generate_lookup_table
+from get_global_domain_mysql import AttributeDomainComputation
 
 class InferenceGraph:
     def __init__(self, db_state, delset, lookup_table, default_domains):
@@ -89,6 +90,24 @@ default_domains = {
     "SalPrHr": {10, 20, 30},
     "WrkHr": {20, 40, 60}
 }
+
+# Load domain map from file
+adc = AttributeDomainComputation()
+adc.load_domain_map("domain_map.json")  # Assuming it's already generated
+
+# Build default_domains for NULL attributes
+default_domains = {}
+for attr in delset:
+    if db_state[attr] is None:
+        domain_info = adc.get_domain("Payroll", attr)  # 🔁 Replace 'Payroll' with the correct table
+        if domain_info["type"] == "numeric":
+            min_val, max_val = domain_info["min"], domain_info["max"]
+            default_domains[attr] = set(range(int(min_val), int(max_val) + 1))
+        elif domain_info["type"] == "string":
+            default_domains[attr] = set(domain_info["values"])
+
+
+
 
 
 # Instantiate the InferenceGraph class
