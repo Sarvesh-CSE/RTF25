@@ -1,6 +1,6 @@
 from proess_data import fetch_database_state, filter_data, get_target_cell_location, delset, target_eid
 from dc_lookup import generate_lookup_table
-from get_global_domain_mysql import AttributeDomainComputation
+from IGC_c_get_global_domain_mysql import AttributeDomainComputation
 
 class InferenceGraph:
     def __init__(self, db_state, delset, lookup_table, default_domains):

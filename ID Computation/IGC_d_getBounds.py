@@ -1,6 +1,8 @@
 from proess_data import target_eid
 import mysql.connector
 
+
+
 class DomainInfer:
     def __init__(self, host='localhost', user='root', password='uci@dbh@2084', database='RTF25'):
         self.config = {
@@ -75,6 +77,30 @@ temp_val = infer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='E
 bounds = infer.get_bounds_int_int(target_attr='Salary', known_attr='Tax', known_value=temp_val, table_name='Tax')
 
 print(f"Inferred domain for Salary: {bounds}")
+
+
+print("=====================================")
+
+
+# Step 1: Get known value for the target row
+temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=target_eid)
+
+# Step 2: Infer bounds for missing Tax
+bounds = infer.get_bounds_int_int(target_attr='Tax', known_attr='Salary', known_value=temp_val, table_name='Tax')
+
+print(f"Inferred domain for Tax: {bounds}")
+
+
+print("=====================================")
+
+
+# Step 1: Get known value for the target row
+temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=3)
+
+# Step 2: Infer bounds for missing Tax
+bounds = infer.get_bounds_int_int(target_attr='Tax', known_attr='Salary', known_value=temp_val, table_name='Tax')
+
+print(f"Inferred domain for Tax: {bounds}")
 
 infer.close()
 
