@@ -35,14 +35,12 @@ class DomainInfer:
         row = self.cursor.fetchone()
         return row[known_attr] if row else None
 
-    def get_bounds_int_int(self, target_attr, target_table, known_attr, known_table, known_value, join_key=None):
+    def get_bounds_int_int(self, target_attr, target_table, known_attr, known_table, known_value):
         """
         Infer bounds for target_attr given known_attr = known_value based on a DC of the form:
             ¬(t1.A > t2.A ∧ t1.B < t2.B)
         
-        This method handles both cases:
-        1. When target_attr and known_attr are from the same table (join_key not needed)
-        2. When they are from different tables (requires join_key)
+        This method handles both same-table and cross-table cases without using joins.
         
         Parameters:
         - target_attr: The attribute we want to find bounds for
@@ -50,61 +48,84 @@ class DomainInfer:
         - known_attr: The attribute with known value
         - known_table: The table containing known_attr
         - known_value: The value of known_attr
-        - join_key: The key used to join tables if different (e.g., 'EID'). Optional if same table.
         """
         # Validate inputs
         assert target_attr != known_attr or target_table != known_table, "Target and known attributes must be different if in same table"
         
-        # Determine if we're working with same or different tables
-        same_table = (target_table == known_table)
-        
-        if same_table:
-            # Lower bound - same table case
+        if target_table == known_table:
+            # Same table case - use direct queries
             query_lower = f"""
                 SELECT {target_attr} FROM {target_table}
                 WHERE {known_attr} < %s
                 ORDER BY {known_attr} DESC
                 LIMIT 1
             """
-            # Upper bound - same table case
             query_upper = f"""
                 SELECT {target_attr} FROM {target_table}
                 WHERE {known_attr} > %s
                 ORDER BY {known_attr} ASC
                 LIMIT 1
             """
+            params = (known_value,)
         else:
-            # Validate join_key for cross-table case
-            if not join_key:
-                raise ValueError("join_key is required when target_table and known_table are different")
-                
-            # Lower bound - cross table case
+            # Cross-table case - first get EIDs, then find bounds
+            # Get EIDs from known table where known_attr < known_value
+            query_get_eids_lower = f"""
+                SELECT EID FROM {known_table}
+                WHERE {known_attr} < %s
+                ORDER BY {known_attr} DESC
+                LIMIT 1
+            """
+            # Get EIDs from known table where known_attr > known_value
+            query_get_eids_upper = f"""
+                SELECT EID FROM {known_table}
+                WHERE {known_attr} > %s
+                ORDER BY {known_attr} ASC
+                LIMIT 1
+            """
+            
+            # Execute to get EIDs
+            self.cursor.execute(query_get_eids_lower, (known_value,))
+            eid_lower = self.cursor.fetchone()
+            
+            self.cursor.execute(query_get_eids_upper, (known_value,))
+            eid_upper = self.cursor.fetchone()
+            
+            # Now get bounds using the EIDs
             query_lower = f"""
-                SELECT t1.{target_attr} 
-                FROM {target_table} t1
-                JOIN {known_table} t2 ON t1.{join_key} = t2.{join_key}
-                WHERE t2.{known_attr} < %s
-                ORDER BY t2.{known_attr} DESC
-                LIMIT 1
+                SELECT {target_attr} FROM {target_table}
+                WHERE EID = %s
             """
-            # Upper bound - cross table case
             query_upper = f"""
-                SELECT t1.{target_attr}
-                FROM {target_table} t1
-                JOIN {known_table} t2 ON t1.{join_key} = t2.{join_key}
-                WHERE t2.{known_attr} > %s
-                ORDER BY t2.{known_attr} ASC
-                LIMIT 1
+                SELECT {target_attr} FROM {target_table}
+                WHERE EID = %s
             """
+            params = (eid_lower['EID'] if eid_lower else None, eid_upper['EID'] if eid_upper else None)
 
         # Execute queries and get bounds
-        self.cursor.execute(query_lower, (known_value,))
-        pred = self.cursor.fetchone()
-        lower = pred[target_attr] if pred else float('-inf')
+        if target_table == known_table:
+            self.cursor.execute(query_lower, params)
+            pred = self.cursor.fetchone()
+            lower = pred[target_attr] if pred else float('-inf')
 
-        self.cursor.execute(query_upper, (known_value,))
-        succ = self.cursor.fetchone()
-        upper = succ[target_attr] if succ else float('inf')
+            self.cursor.execute(query_upper, params)
+            succ = self.cursor.fetchone()
+            upper = succ[target_attr] if succ else float('inf')
+        else:
+            # For cross-table case, we need to handle the EID queries
+            lower = float('-inf')
+            if params[0] is not None:
+                self.cursor.execute(query_lower, (params[0],))
+                pred = self.cursor.fetchone()
+                if pred:
+                    lower = pred[target_attr]
+
+            upper = float('inf')
+            if params[1] is not None:
+                self.cursor.execute(query_upper, (params[1],))
+                succ = self.cursor.fetchone()
+                if succ:
+                    upper = succ[target_attr]
 
         return (lower, upper)
     
