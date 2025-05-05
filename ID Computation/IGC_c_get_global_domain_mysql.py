@@ -19,11 +19,22 @@ class AttributeDomainComputation:
         cursor = connection.cursor()
 
         db_name = 'RTF25'
-        tables = ['Employee', 'Payroll', 'Tax']
+        
+        # Get all tables from the database
+        cursor.execute("""
+            SELECT TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = %s
+        """, (db_name,))
+        
+        tables = [row[0] for row in cursor.fetchall()]
+        print(f"Found tables: {tables}")
         
         numeric_types = {'int', 'bigint', 'smallint', 'decimal', 'float', 'double', 'numeric', 'real'}
         string_types = {'varchar', 'char', 'text', 'enum', 'set'}
 
+        # Clear existing domain map
+        self.domain_map = {}
 
         for table in tables:
             cursor.execute("""
@@ -33,10 +44,12 @@ class AttributeDomainComputation:
             """, (db_name, table))
             
             columns = cursor.fetchall()
+            print(f"Processing table {table} with columns: {[col[0] for col in columns]}")
 
             for column_name, data_type in columns:
                 data_type = data_type.lower()
-                key = (table, column_name)
+                # Always store keys in lowercase
+                key = (table.lower(), column_name.lower())
 
                 if data_type in numeric_types:
                     cursor.execute(f"""
@@ -49,6 +62,7 @@ class AttributeDomainComputation:
                         'min': min_val,
                         'max': max_val
                     }
+                    print(f"Added numeric domain for {key}: min={min_val}, max={max_val}")
 
                 elif data_type in string_types:
                     cursor.execute(f"""
@@ -62,12 +76,12 @@ class AttributeDomainComputation:
                         'type': 'string',
                         'values': values
                     }
-
+                    print(f"Added string domain for {key} with {len(values)} distinct values")
 
         cursor.close()
         connection.close()
         print("Attribute domain computation completed.") 
-        print("Domain map populated.")
+        print("Domain map populated with keys:", sorted(self.domain_map.keys()))
            
     def save_domain_map(self, filepath="domain_map.json"):
         with open(filepath, 'w') as f:
@@ -95,8 +109,12 @@ class AttributeDomainComputation:
     #     return self.domain_map.get((table, column))
     
     def get_domain(self, table, column, domain_file="domain_map.json"):
-        # print(os.getcwd())
-        key = (table, column)
+        # Convert table and column names to lowercase for case-insensitive comparison
+        table_lower = table.lower()
+        column_lower = column.lower()
+        key = (table_lower, column_lower)
+        
+        print(f"Looking up domain for table: {table_lower}, column: {column_lower}")
 
         # Load if domain_map is empty
         if not self.domain_map:
@@ -112,6 +130,10 @@ class AttributeDomainComputation:
             print(f"Domain for {key} not found. Recomputing full domain map...")
             self.compute_attribute_domain()
             self.save_domain_map(domain_file)
+            # Check if the key exists after recomputing
+            if key not in self.domain_map:
+                print(f"Warning: Domain still not found for {key} after recomputing")
+                return None
 
         return self.domain_map.get(key)
 
@@ -123,5 +145,5 @@ if __name__ == "__main__":
 
     # Example usage
     print("\nAccessing Domain:")
-    print("Payroll.SalPrHr:", adc.get_domain("Payroll", "Dept"))  # <-- only reads from the map
+    print("Payroll.Dept:", adc.get_domain("Payroll", "Dept"))  # Fixed column name to match the lookup
     print("Employee.State:", adc.get_domain("Employee", "State"))
