@@ -1,5 +1,6 @@
 from proess_data import target_eid
 import mysql.connector
+import argparse
 
 
 
@@ -55,16 +56,12 @@ class DomainInfer:
         if target_table == known_table:
             # Same table case - use direct queries
             query_lower = f"""
-                SELECT {target_attr} FROM {target_table}
+                SELECT MAX({target_attr}) as max_val FROM {target_table}
                 WHERE {known_attr} < %s
-                ORDER BY {known_attr} DESC
-                LIMIT 1
             """
             query_upper = f"""
-                SELECT {target_attr} FROM {target_table}
+                SELECT MIN({target_attr}) as min_val FROM {target_table}
                 WHERE {known_attr} > %s
-                ORDER BY {known_attr} ASC
-                LIMIT 1
             """
             params = (known_value,)
         else:
@@ -106,11 +103,11 @@ class DomainInfer:
         if target_table == known_table:
             self.cursor.execute(query_lower, params)
             pred = self.cursor.fetchone()
-            lower = pred[target_attr] if pred else float('-inf')
+            lower = pred['max_val'] if pred else float('-inf')
 
             self.cursor.execute(query_upper, params)
             succ = self.cursor.fetchone()
-            upper = succ[target_attr] if succ else float('inf')
+            upper = succ['min_val'] if succ else float('inf')
         else:
             # For cross-table case, we need to handle the EID queries
             lower = float('-inf')
@@ -131,39 +128,52 @@ class DomainInfer:
     
 
 
-infer = DomainInfer()
+if __name__ == "__main__":
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Infer domain bounds for database attributes')
+    parser.add_argument('--db', '--database', 
+                      default='RTF25',
+                      help='Database name (default: RTF25)')
+    parser.add_argument('--eid',
+                      type=int,
+                      default=target_eid,
+                      help=f'Target EID to process (default: {target_eid})')
+    
+    args = parser.parse_args()
+    
+    # Initialize with database name from command line
+    infer = DomainInfer(database=args.db)
 
-# Step 1: Get known value for the target row
-temp_val = infer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='EID', key_val=target_eid)
+    # Step 1: Get known value for the target row
+    temp_val = infer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='EID', key_val=args.eid)
 
-# Step 2: Infer bounds for missing Salary
-bounds = infer.get_bounds_int_int(target_attr='Salary', target_table='Tax', known_attr='Tax', known_table='Tax', known_value=temp_val)
+    # temp_val = infer.get_known_value(table_name='tpchdb.lineitem', known_attr='l_discount', key_attr='l_orderkey', key_val=1)
+    # print(temp_val)
 
-print(f"Inferred domain for Salary: {bounds}")
+    # Step 2: Infer bounds for missing Salary
+    bounds = infer.get_bounds_int_int(target_attr='Salary', target_table='Tax', known_attr='Tax', known_table='Tax', known_value=temp_val)
 
+    print(f"Inferred domain for Salary: {bounds}")
 
-print("=====================================")
+    print("=====================================")
 
+    # Step 1: Get known value for the target row
+    temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=args.eid)
 
-# Step 1: Get known value for the target row
-temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=target_eid)
+    # Step 2: Infer bounds for missing Tax
+    bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
 
-# Step 2: Infer bounds for missing Tax
-bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
+    print(f"Inferred domain for Tax: {bounds}")
 
-print(f"Inferred domain for Tax: {bounds}")
+    print("=====================================")
 
+    # Step 1: Get known value for the target row
+    temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=3)
 
-print("=====================================")
+    # Step 2: Infer bounds for missing Tax
+    bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
 
+    print(f"Inferred domain for Tax: {bounds}")
 
-# Step 1: Get known value for the target row
-temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=3)
-
-# Step 2: Infer bounds for missing Tax
-bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
-
-print(f"Inferred domain for Tax: {bounds}")
-
-infer.close()
+    infer.close()
 
