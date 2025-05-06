@@ -1,34 +1,36 @@
 import mysql.connector
 import json
 import os
+import argparse
 
 class AttributeDomainComputation:
-    def __init__(self):
+    def __init__(self, db_name='RTF25'):
         self.domain_map = {}
+        self.db_name = db_name
+        # Get the directory where the script is located
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
 
     def get_db_connection(self):
         return mysql.connector.connect(
             host='localhost',
             user='root',
             password='uci@dbh@2084',
-            database='RTF25'
+            database=self.db_name
         )
 
     def compute_attribute_domain(self):
         connection = self.get_db_connection()
         cursor = connection.cursor()
-
-        db_name = 'RTF25'
         
         # Get all tables from the database
         cursor.execute("""
             SELECT TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_SCHEMA = %s
-        """, (db_name,))
+        """, (self.db_name,))
         
         tables = [row[0] for row in cursor.fetchall()]
-        print(f"Found tables: {tables}")
+        print(f"Found tables in {self.db_name}: {tables}")
         
         numeric_types = {'int', 'bigint', 'smallint', 'decimal', 'float', 'double', 'numeric', 'real'}
         string_types = {'varchar', 'char', 'text', 'enum', 'set'}
@@ -41,7 +43,7 @@ class AttributeDomainComputation:
                 SELECT COLUMN_NAME, DATA_TYPE
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-            """, (db_name, table))
+            """, (self.db_name, table))
             
             columns = cursor.fetchall()
             print(f"Processing table {table} with columns: {[col[0] for col in columns]}")
@@ -82,14 +84,17 @@ class AttributeDomainComputation:
         connection.close()
         print("Attribute domain computation completed.") 
         print("Domain map populated with keys:", sorted(self.domain_map.keys()))
-           
-    def save_domain_map(self, filepath="domain_map.json"):
+
+    def save_domain_map(self, filepath=None):
+        if filepath is None:
+            filepath = os.path.join(self.script_dir, f"{self.db_name}_domain_map.json")
         with open(filepath, 'w') as f:
             json.dump({f"{k[0]}.{k[1]}": v for k, v in self.domain_map.items()}, f, indent=2)
         print("Saving to:", filepath)
 
-
-    def load_domain_map(self, filepath="domain_map.json"):
+    def load_domain_map(self, filepath=None):
+        if filepath is None:
+            filepath = os.path.join(self.script_dir, f"{self.db_name}_domain_map.json")
         if os.path.exists(filepath):
             try:
                 with open(filepath, 'r') as f:
@@ -102,13 +107,8 @@ class AttributeDomainComputation:
                 self.save_domain_map(filepath)
         else:
             raise FileNotFoundError(f"No domain map found at {filepath}")
-    
-    # def get_domain(self, table, column):
-    #     if not self.domain_map:
-    #         raise ValueError("Domain map is empty. Run compute_attribute_domain() first.")
-    #     return self.domain_map.get((table, column))
-    
-    def get_domain(self, table, column, domain_file="domain_map.json"):
+
+    def get_domain(self, table, column, domain_file=None):
         # Convert table and column names to lowercase for case-insensitive comparison
         table_lower = table.lower()
         column_lower = column.lower()
@@ -121,7 +121,7 @@ class AttributeDomainComputation:
             try:
                 self.load_domain_map(domain_file)
             except FileNotFoundError:
-                print(f"Domain map file '{domain_file}' not found. Computing domain map...")
+                print(f"Domain map file not found. Computing domain map...")
                 self.compute_attribute_domain()
                 self.save_domain_map(domain_file)
 
@@ -137,13 +137,28 @@ class AttributeDomainComputation:
 
         return self.domain_map.get(key)
 
-
-
 if __name__ == "__main__":
-    adc = AttributeDomainComputation()
-    # adc.compute_attribute_domain() # <-- runs once to populate the map and save to file
-
-    # Example usage
-    print("\nAccessing Domain:")
-    print("Payroll.Dept:", adc.get_domain("Payroll", "Dept"))  # Fixed column name to match the lookup
-    print("Employee.State:", adc.get_domain("Employee", "State"))
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Compute attribute domains for a MySQL database')
+    parser.add_argument('--db', '--database', 
+                      default='RTF25',
+                      help='Database name (default: RTF25)')
+    parser.add_argument('--table', 
+                      help='Specific table to process (optional)')
+    parser.add_argument('--column', 
+                      help='Specific column to process (optional)')
+    
+    args = parser.parse_args()
+    
+    # Initialize with database name from command line
+    adc = AttributeDomainComputation(args.db)
+    
+    if args.table and args.column:
+        # Process specific table and column
+        print(f"\nAccessing Domain for {args.table}.{args.column}:")
+        print(adc.get_domain(args.table, args.column))
+    else:
+        # Process all tables and columns
+        print("\nAccessing Domains:")
+        print("lineitem.l_linenumber:", adc.get_domain("lineitem", "l_linenumber"))
+        # print("Employee.State:", adc.get_domain("line_item", "State"))
