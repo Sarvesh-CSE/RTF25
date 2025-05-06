@@ -1,5 +1,6 @@
 # Optional: Ignore all CSV files in the directory
 *.csv
+*.json
 
 
 # Byte-compiled / optimized / DLL files
