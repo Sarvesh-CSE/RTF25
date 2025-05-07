@@ -20,6 +20,36 @@ class DomainInfer:
         }
         self.connection = None
         self.cursor = None
+        
+        if database == 'RTF25':
+            self.primary_keys = {'*': ['EID']}  # All tables use EID as primary key
+            self.foreign_keys = {}  # No foreign key relationships in RTF25
+        else:  # tpchdb
+            # Primary keys for each table
+            self.primary_keys = {
+                'region': ['r_regionkey'],      # Each region has a unique key
+                'nation': ['n_nationkey'],      # Unique nation identifier
+                'supplier': ['s_suppkey'],      # Each supplier has a unique ID
+                'customer': ['c_custkey'],      # Each customer is uniquely identified
+                'part': ['p_partkey'],          # Each part has a unique part key
+                'partsupp': ['ps_partkey', 'ps_suppkey'],  # Composite key: A part supplied by a supplier
+                'orders': ['o_orderkey'],       # Unique order identifier
+                'lineitem': ['l_orderkey', 'l_linenumber'] # Composite key: Line number within an order
+            }
+            
+            # Foreign key relationships between tables
+            self.foreign_keys = {
+                # Format: (table1, table2): [(col1, col2), ...]
+                ('customer', 'orders'): [('c_custkey', 'o_custkey')],
+                ('orders', 'lineitem'): [('o_orderkey', 'l_orderkey')],
+                ('lineitem', 'part'): [('l_partkey', 'p_partkey')],
+                ('lineitem', 'supplier'): [('l_suppkey', 's_suppkey')],
+                ('part', 'partsupp'): [('p_partkey', 'ps_partkey')],
+                ('supplier', 'partsupp'): [('s_suppkey', 'ps_suppkey')],
+                ('customer', 'nation'): [('c_nationkey', 'n_nationkey')],
+                ('supplier', 'nation'): [('s_nationkey', 'n_nationkey')],
+                ('nation', 'region'): [('n_regionkey', 'r_regionkey')]
+            }
         self.connect()
 
     def connect(self):
@@ -117,11 +147,67 @@ class DomainInfer:
 
         return (lower, upper)
 
+    def _get_join_conditions(self, table1, table2):
+        """
+        Get the appropriate join conditions between two tables based on their relationships.
+        First checks for foreign key relationships, then falls back to primary keys if needed.
+        
+        Parameters:
+        - table1: First table name
+        - table2: Second table name
+        
+        Returns:
+        - String containing the join conditions
+        """
+        table1 = table1.lower()
+        table2 = table2.lower()
+        
+        # First check for direct foreign key relationship
+        if (table1, table2) in self.foreign_keys:
+            fk_pairs = self.foreign_keys[(table1, table2)]
+        elif (table2, table1) in self.foreign_keys:
+            # Reverse the column pairs if the relationship is in the opposite direction
+            fk_pairs = [(col2, col1) for col1, col2 in self.foreign_keys[(table2, table1)]]
+        else:
+            # If no foreign key relationship exists, try to use common primary keys
+            keys1 = self.primary_keys.get(table1, [])
+            keys2 = self.primary_keys.get(table2, [])
+            
+            if not keys1 or not keys2:
+                raise ValueError(f"Primary keys not defined for tables: {table1} and/or {table2}")
+            
+            common_keys = set(keys1) & set(keys2)
+            if not common_keys:
+                raise ValueError(f"No join relationship found between {table1} and {table2}")
+            
+            fk_pairs = [(key, key) for key in common_keys]
+        
+        # Build join conditions
+        return " AND ".join([f"t1.{col1} = t2.{col2}" for col1, col2 in fk_pairs])
+
     def _get_bounds_cross_table(self, target_attr, target_table, known_attr, known_table, known_value):
         """
         Get bounds when target and known attributes are in different tables.
         Uses EXISTS subqueries to maintain relationships between tables.
+        
+        The join between tables is done using:
+        - Foreign key relationships when available
+        - Common primary keys as fallback
+        
+        For tpchdb, the following relationships are supported:
+        - CUSTOMER ↔ ORDERS: C_CUSTKEY = O_CUSTKEY
+        - ORDERS ↔ LINEITEM: O_ORDERKEY = L_ORDERKEY
+        - LINEITEM ↔ PART: L_PARTKEY = P_PARTKEY
+        - LINEITEM ↔ SUPPLIER: L_SUPPKEY = S_SUPPKEY
+        - PART ↔ PARTSUPP: P_PARTKEY = PS_PARTKEY
+        - SUPPLIER ↔ PARTSUPP: S_SUPPKEY = PS_SUPPKEY
+        - CUSTOMER ↔ NATION: C_NATIONKEY = N_NATIONKEY
+        - SUPPLIER ↔ NATION: S_NATIONKEY = N_NATIONKEY
+        - NATION ↔ REGION: N_REGIONKEY = R_REGIONKEY
         """
+        # Get join conditions for these specific tables
+        join_conditions = self._get_join_conditions(target_table, known_table)
+        
         # Get lower bound: MAX of target_attr where known_attr < known_value
         query_lower = f"""
             SELECT MAX(t1.{target_attr}) as max_val
@@ -130,7 +216,7 @@ class DomainInfer:
                 SELECT 1 
                 FROM {known_table} t2 
                 WHERE t2.{known_attr} < %s
-                AND t1.EID = t2.EID
+                AND {join_conditions}
             )
         """
         
@@ -142,7 +228,7 @@ class DomainInfer:
                 SELECT 1 
                 FROM {known_table} t2 
                 WHERE t2.{known_attr} > %s
-                AND t1.EID = t2.EID
+                AND {join_conditions}
             )
         """
         
@@ -173,6 +259,20 @@ Examples:
 
   # Using different attributes and key values:
   python IGC_d_getBounds.py --attr1 l_quantity --attr2 l_extendedprice --key-vals 1 2
+
+  # Using RTF25 database (uses EID as primary key):
+  python IGC_d_getBounds.py --db RTF25
+
+Note: For tpchdb, tables can be joined using the following relationships:
+- CUSTOMER ↔ ORDERS: C_CUSTKEY = O_CUSTKEY
+- ORDERS ↔ LINEITEM: O_ORDERKEY = L_ORDERKEY
+- LINEITEM ↔ PART: L_PARTKEY = P_PARTKEY
+- LINEITEM ↔ SUPPLIER: L_SUPPKEY = S_SUPPKEY
+- PART ↔ PARTSUPP: P_PARTKEY = PS_PARTKEY
+- SUPPLIER ↔ PARTSUPP: S_SUPPKEY = PS_SUPPKEY
+- CUSTOMER ↔ NATION: C_NATIONKEY = N_NATIONKEY
+- SUPPLIER ↔ NATION: S_NATIONKEY = N_NATIONKEY
+- NATION ↔ REGION: N_REGIONKEY = R_REGIONKEY
 """
     )
     parser.add_argument('--db', '--database', 
