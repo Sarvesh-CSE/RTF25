@@ -5,7 +5,13 @@ import argparse
 
 
 class DomainInfer:
+    """
+    A class to infer domain bounds for attributes in a database.
+    Uses a dependency constraint of the form: ¬(t1.A > t2.A ∧ t1.B < t2.B)
+    to find bounds for one attribute given a value of another attribute.
+    """
     def __init__(self, host='localhost', user='root', password='uci@dbh@2084', database='RTF25'):
+        """Initialize database connection parameters."""
         self.config = {
             'host': host,
             'user': user,
@@ -17,31 +23,49 @@ class DomainInfer:
         self.connect()
 
     def connect(self):
+        """Establish database connection with dictionary cursor."""
         self.connection = mysql.connector.connect(**self.config)
         self.cursor = self.connection.cursor(dictionary=True)
 
     def close(self):
+        """Close database connection and cursor."""
         if self.cursor:
             self.cursor.close()
         if self.connection:
             self.connection.close()
 
-    def get_known_value(self, table_name, known_attr, key_attr, key_val):
+    def get_known_value(self, table_name, known_attr, key_attrs, key_vals):
         """
-        Get the value of known_attr from table_name where key_attr = key_val.
-        E.g., get Tax where EID = 2
+        Get the value of known_attr from table_name using composite key.
+        
+        Parameters:
+        - table_name: Name of the table
+        - known_attr: Attribute to get value for
+        - key_attrs: List of key column names
+        - key_vals: List of key values corresponding to key_attrs
+        
+        Returns:
+        - The value of known_attr or None if not found
         """
-        query = f"SELECT {known_attr} FROM {table_name} WHERE {key_attr} = %s"
-        self.cursor.execute(query, (key_val,))
+        # Build WHERE clause for all key columns
+        where_clause = " AND ".join([f"{attr} = %s" for attr in key_attrs])
+        query = f"SELECT {known_attr} FROM {table_name} WHERE {where_clause}"
+        
+        # Execute query and return result
+        self.cursor.execute(query, key_vals)
         row = self.cursor.fetchone()
         return row[known_attr] if row else None
 
     def get_bounds_int_int(self, target_attr, target_table, known_attr, known_table, known_value):
         """
-        Infer bounds for target_attr given known_attr = known_value based on a DC of the form:
-            ¬(t1.A > t2.A ∧ t1.B < t2.B)
+        Infer bounds for target_attr given known_attr = known_value.
         
-        This method handles both same-table and cross-table cases without using joins.
+        The method uses a dependency constraint of the form:
+        ¬(t1.A > t2.A ∧ t1.B < t2.B)
+        
+        This means if we know a value for attribute B, we can find bounds for attribute A:
+        - Lower bound: MAX of A where B < known_value
+        - Upper bound: MIN of A where B > known_value
         
         Parameters:
         - target_attr: The attribute we want to find bounds for
@@ -49,131 +73,176 @@ class DomainInfer:
         - known_attr: The attribute with known value
         - known_table: The table containing known_attr
         - known_value: The value of known_attr
+        
+        Returns:
+        - tuple: (lower_bound, upper_bound) where bounds can be float('-inf') or float('inf')
         """
         # Validate inputs
-        assert target_attr != known_attr or target_table != known_table, "Target and known attributes must be different if in same table"
+        assert target_attr != known_attr or target_table != known_table, \
+            "Target and known attributes must be different if in same table"
         
+        # Use appropriate method based on whether attributes are in same table
         if target_table == known_table:
-            # Same table case - use direct queries
-            query_lower = f"""
-                SELECT MAX({target_attr}) as max_val FROM {target_table}
-                WHERE {known_attr} < %s
-            """
-            query_upper = f"""
-                SELECT MIN({target_attr}) as min_val FROM {target_table}
-                WHERE {known_attr} > %s
-            """
-            params = (known_value,)
+            return self._get_bounds_same_table(target_attr, target_table, known_attr, known_value)
         else:
-            # Cross-table case - first get EIDs, then find bounds
-            # Get EIDs from known table where known_attr < known_value
-            query_get_eids_lower = f"""
-                SELECT EID FROM {known_table}
-                WHERE {known_attr} < %s
-                ORDER BY {known_attr} DESC
-                LIMIT 1
-            """
-            # Get EIDs from known table where known_attr > known_value
-            query_get_eids_upper = f"""
-                SELECT EID FROM {known_table}
-                WHERE {known_attr} > %s
-                ORDER BY {known_attr} ASC
-                LIMIT 1
-            """
-            
-            # Execute to get EIDs
-            self.cursor.execute(query_get_eids_lower, (known_value,))
-            eid_lower = self.cursor.fetchone()
-            
-            self.cursor.execute(query_get_eids_upper, (known_value,))
-            eid_upper = self.cursor.fetchone()
-            
-            # Now get bounds using the EIDs
-            query_lower = f"""
-                SELECT {target_attr} FROM {target_table}
-                WHERE EID = %s
-            """
-            query_upper = f"""
-                SELECT {target_attr} FROM {target_table}
-                WHERE EID = %s
-            """
-            params = (eid_lower['EID'] if eid_lower else None, eid_upper['EID'] if eid_upper else None)
+            return self._get_bounds_cross_table(target_attr, target_table, known_attr, known_table, known_value)
 
+    def _get_bounds_same_table(self, target_attr, table, known_attr, known_value):
+        """
+        Get bounds when target and known attributes are in the same table.
+        Uses direct MIN/MAX queries for efficiency.
+        """
+        # Get lower bound: MAX of target_attr where known_attr < known_value
+        query_lower = f"""
+            SELECT MAX({target_attr}) as max_val 
+            FROM {table}
+            WHERE {known_attr} < %s
+        """
+        
+        # Get upper bound: MIN of target_attr where known_attr > known_value
+        query_upper = f"""
+            SELECT MIN({target_attr}) as min_val 
+            FROM {table}
+            WHERE {known_attr} > %s
+        """
+        
         # Execute queries and get bounds
-        if target_table == known_table:
-            self.cursor.execute(query_lower, params)
-            pred = self.cursor.fetchone()
-            lower = pred['max_val'] if pred else float('-inf')
+        self.cursor.execute(query_lower, (known_value,))
+        pred = self.cursor.fetchone()
+        lower = pred['max_val'] if pred else float('-inf')
 
-            self.cursor.execute(query_upper, params)
-            succ = self.cursor.fetchone()
-            upper = succ['min_val'] if succ else float('inf')
-        else:
-            # For cross-table case, we need to handle the EID queries
-            lower = float('-inf')
-            if params[0] is not None:
-                self.cursor.execute(query_lower, (params[0],))
-                pred = self.cursor.fetchone()
-                if pred:
-                    lower = pred[target_attr]
-
-            upper = float('inf')
-            if params[1] is not None:
-                self.cursor.execute(query_upper, (params[1],))
-                succ = self.cursor.fetchone()
-                if succ:
-                    upper = succ[target_attr]
+        self.cursor.execute(query_upper, (known_value,))
+        succ = self.cursor.fetchone()
+        upper = succ['min_val'] if succ else float('inf')
 
         return (lower, upper)
-    
+
+    def _get_bounds_cross_table(self, target_attr, target_table, known_attr, known_table, known_value):
+        """
+        Get bounds when target and known attributes are in different tables.
+        Uses EXISTS subqueries to maintain relationships between tables.
+        """
+        # Get lower bound: MAX of target_attr where known_attr < known_value
+        query_lower = f"""
+            SELECT MAX(t1.{target_attr}) as max_val
+            FROM {target_table} t1
+            WHERE EXISTS (
+                SELECT 1 
+                FROM {known_table} t2 
+                WHERE t2.{known_attr} < %s
+                AND t1.EID = t2.EID
+            )
+        """
+        
+        # Get upper bound: MIN of target_attr where known_attr > known_value
+        query_upper = f"""
+            SELECT MIN(t1.{target_attr}) as min_val
+            FROM {target_table} t1
+            WHERE EXISTS (
+                SELECT 1 
+                FROM {known_table} t2 
+                WHERE t2.{known_attr} > %s
+                AND t1.EID = t2.EID
+            )
+        """
+        
+        # Execute queries and get bounds
+        self.cursor.execute(query_lower, (known_value,))
+        pred = self.cursor.fetchone()
+        lower = pred['max_val'] if pred else float('-inf')
+
+        self.cursor.execute(query_upper, (known_value,))
+        succ = self.cursor.fetchone()
+        upper = succ['min_val'] if succ else float('inf')
+
+        return (lower, upper)
 
 
 if __name__ == "__main__":
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Infer domain bounds for database attributes')
+    # Set up command line argument parser
+    parser = argparse.ArgumentParser(
+        description='Infer domain bounds for database attributes',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Using default values (orderkey=1, linenumber=1):
+  python IGC_d_getBounds.py
+
+  # Using different key values (orderkey=1, linenumber=2):
+  python IGC_d_getBounds.py --key-vals 1 2
+
+  # Using different attributes and key values:
+  python IGC_d_getBounds.py --attr1 l_quantity --attr2 l_extendedprice --key-vals 1 2
+"""
+    )
     parser.add_argument('--db', '--database', 
-                      default='RTF25',
-                      help='Database name (default: RTF25)')
-    parser.add_argument('--eid',
+                      default='tpchdb',
+                      help='Database name (default: tpchdb)')
+    parser.add_argument('--table',
+                      default='lineitem',
+                      help='Table name to process (default: lineitem)')
+    parser.add_argument('--key-cols',
+                      nargs='+',
+                      default=['l_orderkey', 'l_linenumber'],
+                      help='Key column names (default: l_orderkey l_linenumber)')
+    parser.add_argument('--key-vals',
+                      nargs='+',
                       type=int,
-                      default=target_eid,
-                      help=f'Target EID to process (default: {target_eid})')
+                      default=[1, 1],
+                      help='Key values corresponding to key-cols (default: 1 1). Example: --key-vals 1 2 means orderkey=1, linenumber=2')
+    parser.add_argument('--attr1',
+                      default='l_extendedprice',
+                      help='First attribute to process (default: l_extendedprice)')
+    parser.add_argument('--attr2',
+                      default='l_discount',
+                      help='Second attribute to process (default: l_discount)')
     
+    # Parse command line arguments
     args = parser.parse_args()
     
-    # Initialize with database name from command line
+    # Initialize domain inference with database name
     infer = DomainInfer(database=args.db)
 
     # Step 1: Get known value for the target row
-    temp_val = infer.get_known_value(table_name='Tax', known_attr='Tax', key_attr='EID', key_val=args.eid)
+    known_value = infer.get_known_value(table_name=args.table, 
+                                      known_attr=args.attr2, 
+                                      key_attrs=args.key_cols,
+                                      key_vals=args.key_vals)
 
-    # temp_val = infer.get_known_value(table_name='tpchdb.lineitem', known_attr='l_discount', key_attr='l_orderkey', key_val=1)
-    # print(temp_val)
+    # Step 2: Infer bounds for first attribute
+    bounds = infer.get_bounds_int_int(target_attr=args.attr1, 
+                                    target_table=args.table, 
+                                    known_attr=args.attr2, 
+                                    known_table=args.table, 
+                                    known_value=known_value)
 
-    # Step 2: Infer bounds for missing Salary
-    bounds = infer.get_bounds_int_int(target_attr='Salary', target_table='Tax', known_attr='Tax', known_table='Tax', known_value=temp_val)
+    # Print results for first attribute
+    print(f"\nInferred domain for {args.attr1} when {args.attr2} = {known_value}")
+    print(f"Key columns: {args.key_cols}")
+    print(f"Key values: {args.key_vals}")
+    print(f"Bounds: {bounds}")
 
-    print(f"Inferred domain for Salary: {bounds}")
+    print("\n" + "="*50 + "\n")
 
-    print("=====================================")
+    # Step 3: Get known value for the target row (other attribute)
+    known_value = infer.get_known_value(table_name=args.table, 
+                                      known_attr=args.attr1, 
+                                      key_attrs=args.key_cols,
+                                      key_vals=args.key_vals)
 
-    # Step 1: Get known value for the target row
-    temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=args.eid)
+    # Step 4: Infer bounds for second attribute
+    bounds = infer.get_bounds_int_int(target_attr=args.attr2, 
+                                    target_table=args.table, 
+                                    known_attr=args.attr1, 
+                                    known_table=args.table, 
+                                    known_value=known_value)
 
-    # Step 2: Infer bounds for missing Tax
-    bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
+    # Print results for second attribute
+    print(f"Inferred domain for {args.attr2} when {args.attr1} = {known_value}")
+    print(f"Key columns: {args.key_cols}")
+    print(f"Key values: {args.key_vals}")
+    print(f"Bounds: {bounds}")
 
-    print(f"Inferred domain for Tax: {bounds}")
-
-    print("=====================================")
-
-    # Step 1: Get known value for the target row
-    temp_val = infer.get_known_value(table_name='Tax', known_attr='Salary', key_attr='EID', key_val=3)
-
-    # Step 2: Infer bounds for missing Tax
-    bounds = infer.get_bounds_int_int(target_attr='Tax', target_table='Tax', known_attr='Salary', known_table='Tax', known_value=temp_val)
-
-    print(f"Inferred domain for Tax: {bounds}")
-
+    # Clean up
     infer.close()
 
