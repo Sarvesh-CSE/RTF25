@@ -90,44 +90,13 @@ class DataGenerator:
         cursor.close()
         connection.close()
     
-    def compute_attribute_domain(self):
-        connection = self.get_db_connection()
-        cursor = connection.cursor()
 
-        db_name = 'RTF25'
-        tables = ['Employee', 'Payroll', 'Tax']
-        numeric_types = {'int', 'bigint', 'smallint', 'decimal', 'float', 'double', 'numeric', 'real'}
-
-        print("Attribute Domains (Min & Max) per Numerical Column:\n")
-
-        for table in tables:
-            cursor.execute(f"""
-                SELECT COLUMN_NAME, DATA_TYPE
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-            """, (db_name, table))
-
-            columns = cursor.fetchall()
-            numeric_columns = [col[0] for col in columns if col[1].lower() in numeric_types]
-
-            for col in numeric_columns:
-                cursor.execute(f"""
-                    SELECT MIN({col}) AS min_val, MAX({col}) AS max_val
-                    FROM {table}
-                """)
-                result = cursor.fetchone()
-                print(f"{table}.{col} -> Min: {result[0]}, Max: {result[1]}")
-            print("-" * 50)
-
-        cursor.close()
-        connection.close()
 
     def generate_all(self):
         self.generate_employee_data()
         self.generate_payroll_data()
         self.generate_tax_data()
         self.export_to_db()
-        self.compute_attribute_domain()
 
 
 
