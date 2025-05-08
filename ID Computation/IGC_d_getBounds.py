@@ -149,7 +149,7 @@ class TableRelationships:
             
             fk_pairs = [(key, key) for key in common_keys]
         
-        return " AND ".join([f"t1.{col1} = t2.{col2}" for col1, col2 in fk_pairs])
+        return " AND ".join([f"{table1}.{col1} = {table2}.{col2}" for col1, col2 in fk_pairs])
 
 class DomainInfer:
     """Infers domain bounds for database attributes."""
@@ -201,35 +201,46 @@ class DomainInfer:
 
     def _get_bounds_cross_table(self, target_attr, target_table, known_attr, known_table, known_value):
         """Get bounds when attributes are in different tables."""
-        join_conditions = self.relationships.get_join_conditions(target_table, known_table)
+        # Get the key columns that link the tables
+        if (target_table, known_table) in self.relationships.foreign_keys:
+            keys = [col1 for col1, _ in self.relationships.foreign_keys[(target_table, known_table)]]
+        elif (known_table, target_table) in self.relationships.foreign_keys:
+            keys = [col2 for _, col2 in self.relationships.foreign_keys[(known_table, target_table)]]
+        else:
+            # Fall back to common primary keys
+            keys1 = self.relationships.primary_keys.get(target_table, [])
+            keys2 = self.relationships.primary_keys.get(known_table, [])
+            keys = list(set(keys1) & set(keys2))
+            if not keys:
+                raise ValueError(f"No relationship found between {target_table} and {known_table}")
+
+        # Build the IN clause conditions
+        in_conditions = []
+        for key in keys:
+            in_conditions.append(f"{target_table}.{key} IN (SELECT {known_table}.{key} FROM {known_table} WHERE {known_table}.{known_attr} < %s)")
         
         query_lower = f"""
-            SELECT MAX(t1.{target_attr}) as max_val
-            FROM {target_table} t1
-            WHERE EXISTS (
-                SELECT 1 
-                FROM {known_table} t2 
-                WHERE t2.{known_attr} < %s
-                AND {join_conditions}
-            )
+            SELECT MAX({target_table}.{target_attr}) as max_val
+            FROM {target_table}
+            WHERE {' AND '.join(in_conditions)}
         """
+        
+        # Build the IN clause conditions for upper bound
+        in_conditions = []
+        for key in keys:
+            in_conditions.append(f"{target_table}.{key} IN (SELECT {known_table}.{key} FROM {known_table} WHERE {known_table}.{known_attr} > %s)")
         
         query_upper = f"""
-            SELECT MIN(t1.{target_attr}) as min_val
-            FROM {target_table} t1
-            WHERE EXISTS (
-                SELECT 1 
-                FROM {known_table} t2 
-                WHERE t2.{known_attr} > %s
-                AND {join_conditions}
-            )
+            SELECT MIN({target_table}.{target_attr}) as min_val
+            FROM {target_table}
+            WHERE {' AND '.join(in_conditions)}
         """
         
-        self.db.cursor.execute(query_lower, (known_value,))
+        self.db.cursor.execute(query_lower, (known_value,) * len(keys))
         pred = self.db.cursor.fetchone()
         lower = pred['max_val'] if pred else float('-inf')
 
-        self.db.cursor.execute(query_upper, (known_value,))
+        self.db.cursor.execute(query_upper, (known_value,) * len(keys))
         succ = self.db.cursor.fetchone()
         upper = succ['min_val'] if succ else float('inf')
 
