@@ -1,6 +1,9 @@
 from proess_data import target_eid
 import mysql.connector
 import argparse
+import json
+import os
+from IGC_c_get_global_domain_mysql import AttributeDomainComputation
 
 class DatabaseConfig:
     """Database configuration and connection management."""
@@ -156,6 +159,7 @@ class DomainInfer:
     def __init__(self, database='RTF25'):
         self.db = DatabaseConfig(database=database)
         self.relationships = TableRelationships(database)
+        self.domain_computer = AttributeDomainComputation(database)
 
     def get_known_value(self, table_name, known_attr, key_attrs, key_vals):
         """Get value of known_attr using composite key."""
@@ -165,6 +169,49 @@ class DomainInfer:
         self.db.cursor.execute(query, key_vals)
         row = self.db.cursor.fetchone()
         return row[known_attr] if row else None
+
+    def get_bounds_equality(self, target_attr, table, known_attr, known_value):
+        """Get bounds based on equality-based denial constraints.
+        For example: ¬(t.Customer=t'.Supplier ∧ t.Supplier=t'.Customer)
+        This means if we know Customer=B, then Supplier cannot be any value v
+        where there exists a tuple with Supplier=B and Customer=v.
+        """
+        # Get all values of known_attr where target_attr = known_value
+        # These are the values that would violate the constraint
+        query = f"""
+            SELECT DISTINCT {known_attr}
+            FROM {table}
+            WHERE {target_attr} = %s
+        """
+        
+        self.db.cursor.execute(query, (known_value,))
+        violating_values = [row[known_attr] for row in self.db.cursor.fetchall()]
+        
+        if not violating_values:
+            return None
+
+        # Get the domain from the JSON file
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        domain_file = os.path.join(script_dir, f"{self.db.config['database']}_domain_map.json")
+        
+        with open(domain_file, 'r') as f:
+            domain_map = json.load(f)
+            
+        key = f"{table.lower()}.{target_attr.lower()}"
+        domain_info = domain_map.get(key)
+        
+        if not domain_info:
+            raise ValueError(f"No domain information found for {key}")
+            
+        all_values = domain_info['values'] if domain_info['type'] == 'string' else list(range(domain_info['min'], domain_info['max'] + 1))
+        
+        # Remove violating values from domain
+        valid_values = [v for v in all_values if v not in violating_values]
+        
+        if not valid_values:
+            return None
+            
+        return (min(valid_values), max(valid_values))
 
     def get_bounds_int_int(self, target_attr, target_table, known_attr, known_table, known_value):
         """Infer bounds for target_attr given known_attr = known_value."""
