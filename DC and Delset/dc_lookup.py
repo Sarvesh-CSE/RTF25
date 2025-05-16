@@ -14,23 +14,35 @@ def load_dc_config(db_name):
         from dc_configs import rtf25_dcs as dc_config
     elif db_name == "tpchdb":
         from dc_configs import tpch_dcs as dc_config
+    elif db_name == "adult":
+        from dc_configs import topAdultDCs_parsed as dc_config
     else:
         raise ValueError(f"Unsupported DB: {db_name}")
     
     return dc_config.denial_constraints
 
-def generate_lookup_table(db_name):
+def normalize(attr):
+    return attr.split(".")[1] if "." in attr else attr
+
+def generate_lookup_table_from_dc_list(dc_list):
     """
-    Generate a lookup table mapping each attribute to the set of DCs it is involved in.
+    Generates a lookup table mapping normalized attributes to DC labels (ϕi).
+    Logs any malformed predicates skipped during processing.
     """
-    denial_constraints = load_dc_config(db_name)
     lookup_table = {}
 
-    for dc_label, attributes in denial_constraints.items():
-        for attr in attributes:
-            if attr not in lookup_table:
-                lookup_table[attr] = set()
-            lookup_table[attr].add(dc_label)
+    for idx, dc in enumerate(dc_list):
+        dc_label = f"ϕ{idx + 1}"
+        for predicate in dc:
+            if isinstance(predicate, (list, tuple)) and len(predicate) == 3:
+                lhs, _, rhs = predicate
+                for attr in (lhs, rhs):
+                    key = normalize(attr)
+                    if key not in lookup_table:
+                        lookup_table[key] = set()
+                    lookup_table[key].add(dc_label)
+            else:
+                print(f"Skipped malformed predicate in {dc_label}: {predicate}")
 
     return lookup_table
 
@@ -41,19 +53,23 @@ def print_lookup_table(lookup_table):
 def main():
     parser = argparse.ArgumentParser(description='Generate denial constraint lookup table')
     parser.add_argument('--db', '--database', 
-                      default='rtf25',
+                      default='adult',
                       help='Database name (default: rtf25)')
     
     args = parser.parse_args()
+    denial_constraints = load_dc_config(args.db)
+    if not denial_constraints:
+        print(f"No denial constraints found for database '{args.db}'.")
+        return
     
-    lookup = generate_lookup_table(args.db)
+    lookup = generate_lookup_table_from_dc_list(denial_constraints)
     print(f"Denial Constraint Lookup Table for '{args.db}':\n")
     print_lookup_table(lookup)
 
 if __name__ == "__main__":
     main()
 
-# lookup_table = generate_lookup_table()
+# lookup_table = generate_lookup_table_from_dc_list()
 # print_lookup_table(lookup_table)
 # The output will show the attributes and the corresponding denial constraints associated with them.
 # This lookup table can be used to quickly identify which denial constraints are relevant for a given attribute.
