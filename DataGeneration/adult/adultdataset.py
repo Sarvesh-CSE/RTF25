@@ -44,6 +44,7 @@ class AdultDatasetCleaner:
         # Create table if it doesn't exist
         mysql_cur.execute("""
         CREATE TABLE IF NOT EXISTS adult_data (
+            id INT AUTO_INCREMENT PRIMARY KEY,            
             age INT,
             workclass VARCHAR(255),
             fnlwgt INT,
