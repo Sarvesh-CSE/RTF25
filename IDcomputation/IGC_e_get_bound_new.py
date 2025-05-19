@@ -62,51 +62,111 @@ class DomianInferFromDC:
         if not isinstance(target_tuple[target_column], int):
             print(f"Skipping: '{target_column}' is not of type int.")
             return
-            # Assuming the target column is an integer
-        comparison_operators = ['>', '<']
-        agg_func = {'>': 'MIN', '<': 'MAX'}
-        for dc_index, dc in enumerate(target_dc_list):
-                # Remove the predicate from dc that has the target attribute and store it as target_predicate
-                target_predicate = None
-                other_preds = []                    
-                for predicate in dc:
-                    left_attr = predicate[0].split('.')[-1]
-                    if left_attr == target_column:
-                        target_predicate = predicate
-                    else:
-                        other_preds.append(predicate)
-                print(f"Target predicate: {target_predicate}")
-                print(f"Other predicates: {other_preds}")
-                # For each predicate in new_dc, generate two SQL queries
-                # Build WHERE clause by combining all predicates in other_preds with AND
-                lhs_where_clauses = []
-                rhs_where_clauses = []
-                for pred in other_preds:
-                    # Example: pred = ('t1.age', '>=', 't2.age')
-                    left = pred[0].split('.')[-1]  # get column name without table alias
-                    op = pred[1]
-                    right = pred[2].split('.')[-1]  # get column name without table alias
 
-                    lhs_where_clauses.append(f"{left} {op} {target_tuple[right]}")
-                    rhs_where_clauses.append(f"{target_tuple[right]} {op} {left}")
-                lhs_where_clauses = " AND ".join(lhs_where_clauses)
-                rhs_where_clauses = " AND ".join(rhs_where_clauses)
-                print(f"LHS WHERE clause: {lhs_where_clauses}")
-                print(f"RHS WHERE clause: {rhs_where_clauses}")
-                
-                
-                # # Generate two queries: one for left, one for right
-                # sql_query_left = f"SELECT MIN{target_predicate[0]} FROM {self.db.config['database']}.{table_name} WHERE {left} {op} {right};"
-                # sql_query_right = f"SELECT MAX{target_predicate[0]} FROM {self.db.config['database']}.{table_name} WHERE {right} {op} {left};"
-                # print(f"SQL Query (left): {sql_query_left}")
-                # print(f"SQL Query (right): {sql_query_right}")
+        bounds = []
+        for dc_index, dc in enumerate(target_dc_list):
+            target_predicate = None
+            other_preds = []
+
+            # Identify target predicate and other predicates
+            for predicate in dc:
+                left_attr = predicate[0].split('.')[-1]
+                if left_attr == target_column:
+                    target_predicate = predicate
+                else:
+                    other_preds.append(predicate)
+
+            if not target_predicate:
+                print(f"No target predicate found in DC: {dc}")
+                continue
+
+            print(f"\nTarget predicate: {target_predicate}")
+            print(f"Other predicates: {other_preds}")
+
+            # Build WHERE clauses for LHS and RHS
+            lhs_conditions = []
+            rhs_conditions = []
+
+            for pred in other_preds:
+                left = pred[0].split('.')[-1]
+                op = pred[1]
+                right = pred[2].split('.')[-1]
+
+                op_sql = '=' if op == '==' else op
+
+                lhs_conditions.append(f"{left} {op_sql} {repr(target_tuple[right])}")
+                rhs_conditions.append(f"{repr(target_tuple[left])} {op_sql} {right}")
+
+            lhs_where_clause = " AND ".join(lhs_conditions)
+            rhs_where_clause = " AND ".join(rhs_conditions)
+
+            print(f"LHS WHERE clause: {lhs_where_clause}")
+            print(f"RHS WHERE clause: {rhs_where_clause}")
+
+            # Determine direction based on target predicate
+            target_op = target_predicate[1]
+            target_col_name = target_predicate[0].split('.')[-1]
+
+            if target_op == '>':
+                sql_query_left = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
+                sql_query_right = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
+            elif target_op == '<':
+                sql_query_left = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
+                sql_query_right = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
+            else:
+                # For unsupported operators, get both min and max as bounds
+                sql_query_left = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
+                sql_query_right = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
+
+            print(f"SQL Query (left): {sql_query_left}")
+            print(f"SQL Query (right): {sql_query_right}")
+
+            # Execute both queries and collect bounds
+            left_bound = self.execute_query(sql_query_left)
+            right_bound = self.execute_query(sql_query_right)
+            bounds.append((left_bound, right_bound))
+
+        print(f"\nAll bounds for {target_column}: {bounds}")
+        self.final_bound(bounds)
+        return bounds
+    
+    def final_bound(self, get_bound_list):
+        # Compute the intersection of all bounds in get_bound_list
+        # Each element in get_bound_list is a tuple: (bound1, bound2)
+        # The intersection is [max(min(bound1, bound2)), min(max(bound1, bound2))]
+        min_bounds = []
+        max_bounds = []
+        for b in get_bound_list:
+            if b[0] is not None and b[1] is not None:
+                min_bounds.append(min(b[0], b[1]))
+                max_bounds.append(max(b[0], b[1]))
+        if not min_bounds or not max_bounds:
+            return None, None
+        intersection_min = max(min_bounds)
+        intersection_max = min(max_bounds)
+        if intersection_min > intersection_max:
+            # No intersection
+            return None, None
+        print(f"Final bounds: {intersection_min}, {intersection_max}")
+        return intersection_min, intersection_max
+
+        
+    def execute_query(self, query):
+        cursor = self.db.cursor
+        result = cursor.fetchone()
+        cursor.execute(query)
+        if result:
+            # Get the first value from the dictionary
+            return next(iter(result.values()))
+        else:
+            return None
 
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get bounds for a specific column in a table.")
     parser.add_argument("--table_name", type=str, default='adult_data', help="Name of the table")
-    parser.add_argument("--target_column_name", type=str, default='capital_loss', help="Name of the column")
+    parser.add_argument("--target_column_name", type=str, default='education_num', help="Name of the column")
     parser.add_argument("--key_column_name", type=str, default='id', help="Primary key column name")
     parser.add_argument("--key_value", type=str, default='4', help="Primary key value")
     args = parser.parse_args()
@@ -115,10 +175,11 @@ if __name__ == "__main__":
     domain_infer.get_target_column_type(args.table_name, args.target_column_name)
     target_dc_list = domain_infer.get_target_dc_list(args.table_name, args.target_column_name)
     target_tuple =domain_infer.get_target_tuple(args.table_name, args.key_column_name, key_value='4')  # Example key value
-    domain_infer.get_bound_from_DC(target_dc_list=target_dc_list,
+    bound_list = domain_infer.get_bound_from_DC(target_dc_list=target_dc_list,
                                     target_tuple=target_tuple,
                                       table_name=args.table_name,
                                       target_column=args.target_column_name) 
+    final_bound = domain_infer.final_bound(bound_list)
 
     
 
