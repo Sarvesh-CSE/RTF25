@@ -110,13 +110,13 @@ class DomianInferFromDC:
             if target_op == '>':
                 sql_query_left = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
                 sql_query_right = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
-            elif target_op == '<':
-                sql_query_left = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
-                sql_query_right = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
+            elif target_op == '<':#switched order of bounds for this operator
+                sql_query_right = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
+                sql_query_left = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
             else:
                 # For unsupported operators, get both min and max as bounds
                 sql_query_left = f"SELECT MIN({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {lhs_where_clause};"
-                sql_query_right = f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
+                sql_query_right= f"SELECT MAX({target_col_name}) FROM {self.db.config['database']}.{table_name} WHERE {rhs_where_clause};"
 
             print(f"SQL Query (left): {sql_query_left}")
             print(f"SQL Query (right): {sql_query_right}")
@@ -124,37 +124,50 @@ class DomianInferFromDC:
             # Execute both queries and collect bounds
             left_bound = self.execute_query(sql_query_left)
             right_bound = self.execute_query(sql_query_right)
-            bounds.append((left_bound, right_bound))
+            #bounds are (int, int). Ignore (None, None)
+            if left_bound is None and right_bound is None:
+                print(f"Skipping: Both bounds are None for DC index {dc_index}.")
+                continue
+            else:
+                if left_bound is None:
+                    left_bound = right_bound
+                elif right_bound is None:
+                    right_bound = left_bound
+                bounds.append((left_bound, right_bound))
+                print(f"Bounds for DC index {dc_index} and {dc}: {left_bound}, {right_bound}")
+                
 
         print(f"\nAll bounds for {target_column}: {bounds}")
-        self.final_bound(bounds)
+        self.intersect_bounds(bounds)
         return bounds
     
-    def final_bound(self, get_bound_list):
+    def intersect_bounds(self, get_bound_list):
         # Compute the intersection of all bounds in get_bound_list
         # Each element in get_bound_list is a tuple: (bound1, bound2)
         # The intersection is [max(min(bound1, bound2)), min(max(bound1, bound2))]
-        min_bounds = []
-        max_bounds = []
-        for b in get_bound_list:
-            if b[0] is not None and b[1] is not None:
-                min_bounds.append(min(b[0], b[1]))
-                max_bounds.append(max(b[0], b[1]))
-        if not min_bounds or not max_bounds:
-            return None, None
-        intersection_min = max(min_bounds)
-        intersection_max = min(max_bounds)
-        if intersection_min > intersection_max:
-            # No intersection
-            return None, None
-        print(f"Final bounds: {intersection_min}, {intersection_max}")
-        return intersection_min, intersection_max
+
+        intersect = (max(get_bound_list,  key=lambda x: x[0])[0], min(get_bound_list,  key=lambda x: x[0])[0])
+        # min_bounds = []
+        # max_bounds = []
+        # for b in get_bound_list:
+        #     if b[0] is not None and b[1] is not None:
+        #         min_bounds.append(min(b[0], b[1]))
+        #         max_bounds.append(max(b[0], b[1]))
+        # if not min_bounds or not max_bounds:
+        #     return None, None
+        # intersection_min = max(min_bounds)
+        # intersection_max = min(max_bounds)
+        # if intersection_min > intersection_max:
+        #     # No intersection
+        #     return None, None
+        print(f"Final bounds: {intersect}")
+        return intersect
 
         
     def execute_query(self, query):
         cursor = self.db.cursor
-        result = cursor.fetchone()
         cursor.execute(query)
+        result = cursor.fetchone()
         if result:
             # Get the first value from the dictionary
             return next(iter(result.values()))
@@ -166,7 +179,7 @@ class DomianInferFromDC:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get bounds for a specific column in a table.")
     parser.add_argument("--table_name", type=str, default='adult_data', help="Name of the table")
-    parser.add_argument("--target_column_name", type=str, default='education_num', help="Name of the column")
+    parser.add_argument("--target_column_name", type=str, default='fnlwgt', help="Name of the column")
     parser.add_argument("--key_column_name", type=str, default='id', help="Primary key column name")
     parser.add_argument("--key_value", type=str, default='4', help="Primary key value")
     args = parser.parse_args()
@@ -179,7 +192,7 @@ if __name__ == "__main__":
                                     target_tuple=target_tuple,
                                       table_name=args.table_name,
                                       target_column=args.target_column_name) 
-    final_bound = domain_infer.final_bound(bound_list)
+    intersect = domain_infer.intersect_bounds(bound_list)
 
     
 
