@@ -1,4 +1,5 @@
 import re
+import os
 
 def parse_denial_constraints_from_file(input_file):
     operator_map = {'<>': '!=', '==': '==', '>': '>', '<': '<'}
