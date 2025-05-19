@@ -80,6 +80,7 @@ class DomianInferFromDC:
                 # For each predicate in new_dc, generate two SQL queries
                 # Build WHERE clause by combining all predicates in other_preds with AND
                 lhs_where_clauses = []
+                rhs_where_clauses = []
                 for pred in other_preds:
                     # Example: pred = ('t1.age', '>=', 't2.age')
                     left = pred[0].split('.')[-1]  # get column name without table alias
@@ -87,8 +88,11 @@ class DomianInferFromDC:
                     right = pred[2].split('.')[-1]  # get column name without table alias
 
                     lhs_where_clauses.append(f"{left} {op} {target_tuple[right]}")
+                    rhs_where_clauses.append(f"{target_tuple[right]} {op} {left}")
                 lhs_where_clauses = " AND ".join(lhs_where_clauses)
+                rhs_where_clauses = " AND ".join(rhs_where_clauses)
                 print(f"LHS WHERE clause: {lhs_where_clauses}")
+                print(f"RHS WHERE clause: {rhs_where_clauses}")
                 
                 
                 # # Generate two queries: one for left, one for right
