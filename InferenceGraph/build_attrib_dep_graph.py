@@ -4,24 +4,10 @@ from collections import deque
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path for import resolution
 
 # === STEP 1: Load denial constraints ===
-from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints # Adjust path if needed
-
-
-def get_target_dc_list(column_name):
-    # Get the list of denial constraints for the specified column
-    target_dc_list = []
-    for dc in denial_constraints:
-        for predicate in dc:
-            # predicate[0] might be like 't2.education'
-            pred_col = predicate[0].split('.')[-1]  # get column name without table alias
-            if column_name == pred_col:
-                target_dc_list.append(dc)
-                break
-    # print(f"Denial constraints for {column_name}: {target_dc_list}")
-    return target_dc_list
+from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints 
 
 
 
@@ -42,6 +28,24 @@ def extract_attributes(dc):
             if '.' in side: # e.g., "t1.education_num"
                 attrs.add(side.split('.')[1])
     return attrs
+
+def extract_all_head_tail_edges(target_attr, denial_constraints):
+    """
+    For a given target attribute and a list of target DCs,
+    return a list of hyperedges {head, tail} where head == target_attr
+    and tail contains all other attributes in that DC.
+    """
+    edges = []
+    for dc in denial_constraints:
+        involved = extract_attributes(dc)
+        if target_attr in involved:
+            tail = involved - {target_attr}
+            if tail:
+                edges.append({"head": target_attr, "tail": tail})
+    print(f"Edges for {target_attr}: {edges}")
+    return edges
+
+
 
 # === STEP 3: Build dependency graph from DCs ===
 def build_dependency_graph(target_attr, target_dc_list):
@@ -81,10 +85,10 @@ def visualize_graph(graph, root):
 # === STEP 5: Run for a specific target ===
 if __name__ == "__main__":
     target_attr = "education_num"
-    target_dc_list = get_target_dc_list(target_attr)
-    dependency_graph = build_dependency_graph(target_attr, target_dc_list)
-    print(f"Dependency graph for '{target_attr}':")
-    for k, v in dependency_graph.items():
-        print(f"  {k} -> {sorted(v)}")
+    extract_all_head_tail_edges(target_attr, denial_constraints)
+    # dependency_graph = build_dependency_graph(target_attr, target_dc_list)
+    # print(f"Dependency graph for '{target_attr}':")
+    # for k, v in dependency_graph.items():
+    #     print(f"  {k} -> {sorted(v)}")
 
-    visualize_graph(dependency_graph, target_attr)
+    # visualize_graph(dependency_graph, target_attr)
