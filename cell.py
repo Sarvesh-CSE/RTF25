@@ -5,9 +5,16 @@ import operator
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path
-from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints # Import parsed denial constraints
-from IDcomputation.IGC_d_getBounds import DatabaseConfig
+import db_wrapper as dbw
 
+db_wrapper =dbw.DatabaseWrapper(dbw.DatabaseConfig())  # Initialize the database wrapper with the 'adult' database
+# result =db_wrapper.execute_query("select * from adult_data limit 1;")  # Example query to fetch data from the 'adult_data' table
+# print(result)  # Print the result of the query
+
+
+sql_query = "select * from adult_data where id = %s limit 1;"  # SQL query to fetch a single tuple from the 'adult_data' table
+target_tuple = db_wrapper.get_tuple(sql_query, 2)  # Fetch a single tuple from the 'adult_data' table
+print(target_tuple)  # Print the fetched tuple
 
 # 1) Core classes
 
@@ -53,31 +60,3 @@ class Cell:
         return hash((self.attribute, self.key, self.value))
 
 
-# Create two Attribute objects
-a1 = Attribute("Employee", "salary")
-a2 = Attribute("Employee", "salary")
-b  = Attribute("Employee", "age")
-
-# Printing
-print(a1)            # → Employee.salary
-
-# Equality
-print(a1 == a2)      # → True
-print(a1 == b)       # → False
-
-# Using in a set or dict
-attrs = {a1, b}
-print(a2 in attrs)   # → True   (because a2 hashes equal to a1)
-
-
-# Create an Attribute and two Cells
-attr = Attribute("Person", "salary")
-c1 = Cell(attr, key=101, value=70000)
-c2 = Cell(Attribute("Person","salary"), key=101, value=70000)
-
-# Even though c1 and c2 are different objects:
-print(c1 == c2)         # → True
-print({c1, c2})         # → only one element in the set
-
-# Inspecting:
-print(c1)               # → Person.salary[101]=>70000
