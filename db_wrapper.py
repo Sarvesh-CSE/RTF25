@@ -36,13 +36,11 @@ class DatabaseWrapper:
         self.db.cursor.execute(query)
         return self.db.cursor.fetchall()
     
-    def get_tuple(self, query: str, param: str):
-        """ Fetch a single tuple based on given key in the query."""
-        self.db.cursor.execute(query, (param,))
-        result = self.db.cursor.fetchone()
-        if result:
-            return tuple(result.values())
-        return None
+
+    def fetch_one(self, query: str, params: tuple = ()) -> dict | None:
+        self.db.cursor.execute(query, params)
+        return self.db.cursor.fetchone()   # returns a dict because dictionary=True
+
 
     def close(self):
         """Close the database connection."""
