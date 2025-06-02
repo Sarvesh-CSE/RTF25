@@ -1,8 +1,7 @@
 from typing import Any, List, Tuple, Dict
 import sys, os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path for import resolution
 import db_wrapper as dbw
-
 from cell import Attribute, Cell, Hyperedge
 from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints
 # This script builds a hypergraph from denial constraints (DCs) and a database table.
@@ -53,10 +52,10 @@ def build_hyperedges(row: Dict[str, Any], key: Any, target_attr: str) -> List[Hy
 
     return list(seen.values())
 
-# 3) Build the full DC‐violation graph for one tuple
+# 3) Build the full DC‐driven graph for one tuple
 def build_graph(row: Dict[str, Any], key: Any) -> Dict[Cell, List[Cell]]:
     """
-    Constructs an adjacency‐list representation of the DC‐violation graph 
+    Constructs an adjacency‐list representation of the DC‐driven graph 
     over all cells in `row`. Each Cell is a node. For any two cells that 
     co‐occur in the same Hyperedge, we add an undirected edge between them.
     """
@@ -65,6 +64,7 @@ def build_graph(row: Dict[str, Any], key: Any) -> Dict[Cell, List[Cell]]:
     for col_name, val in row.items():
         attr = Attribute('adult_data', col_name)
         all_cells[col_name] = Cell(attr, key, val)
+    # print("All cells:", all_cells)
 
     # 3.2 Initialize adjacency map: each Cell → empty list of neighbors
     adjacency: Dict[Cell, List[Cell]] = {cell_obj: [] for cell_obj in all_cells.values()}
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     # 4.2 Build and display the full DC-violation graph
     graph = build_graph(row, key)
     print("\nGraph adjacency list:")
-    for cell, neighbors in graph.items():
-        print(f"  {cell} → {neighbors}")
+    for head_cell, neighbors in graph.items():
+        print(f"  {head_cell} → {neighbors}")
 
     db.close()
