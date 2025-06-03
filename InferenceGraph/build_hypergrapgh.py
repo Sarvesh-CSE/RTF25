@@ -1,18 +1,12 @@
-from typing import Any, List, Tuple, Dict
+from typing import Any, List, Tuple, Dict, Set
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path for import resolution
 import db_wrapper as dbw
 from cell import Attribute, Cell, Hyperedge
 from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints
-# This script builds a hypergraph from denial constraints (DCs) and a database table.
 
-
-# 1) Denial constraints (DCs)
-#    Each DC is a list of predicates of the form (left_attr, operator, right_attr)
-#    where left_attr/right_attr are strings like 't1.education' or 't2.education_num'.
-
-
-# 2) Build hyperedges for a single target attribute
+# -----------------------------------------------------------------------------
+# 2) Build hyperedges for a single target attribute (unchanged)
 def build_hyperedges(row: Dict[str, Any], key: Any, target_attr: str) -> List[Hyperedge]:
     """
     Given one fetched row (mapping column→value) and the primary key,
@@ -25,7 +19,7 @@ def build_hyperedges(row: Dict[str, Any], key: Any, target_attr: str) -> List[Hy
     for dc in denial_constraints:
         head_idx = None
         for i, (left, _, right) in enumerate(dc):
-            # Extract just the column name after the dot, e.g. 'education' from 't1.education'
+            # Extract the column name after the dot, e.g. 'education' from 't1.education'
             left_col = left.split('.')[1]
             right_col = right.split('.')[1]
             if left_col == target_attr or right_col == target_attr:
@@ -52,37 +46,91 @@ def build_hyperedges(row: Dict[str, Any], key: Any, target_attr: str) -> List[Hy
 
     return list(seen.values())
 
-# 3) Build the full DC‐driven graph for one tuple
-def build_graph(row: Dict[str, Any], key: Any) -> Dict[Cell, List[Cell]]:
+
+# 3) Build the “hyperedge_map” (each head → list of Hyperedges), unchanged:
+def build_hyperedge_map(row: Dict[str, Any], key: Any, start_attr: str) -> Dict[Cell, List[Hyperedge]]:
     """
-    Constructs an adjacency‐list representation of the DC‐driven graph 
-    over all cells in `row`. Each Cell is a node. For any two cells that 
-    co‐occur in the same Hyperedge, we add an undirected edge between them.
+    Instead of merging all tails into one neighbor list, collect a mapping:
+        head_cell → [ list of Hyperedges (each from one DC) ]
+
+    We still do a BFS over attributes, but we store each Hyperedge separately.
     """
-    # 3.1 Create a Cell object for every column in the row
+    # 3.1) Create a Cell object for every column in the row
     all_cells: Dict[str, Cell] = {}
     for col_name, val in row.items():
         attr = Attribute('adult_data', col_name)
         all_cells[col_name] = Cell(attr, key, val)
-    # print("All cells:", all_cells)
 
-    # 3.2 Initialize adjacency map: each Cell → empty list of neighbors
-    adjacency: Dict[Cell, List[Cell]] = {cell_obj: [] for cell_obj in all_cells.values()}
+    # 3.2) Prepare a dict: head_cell → list of Hyperedges
+    hyperedge_map: Dict[Cell, List[Hyperedge]] = {cell: [] for cell in all_cells.values()}
 
-    # 3.3 For each column name, generate hyperedges and link cells pairwise
-    for target_attr in row.keys():
-        hyperedges = build_hyperedges(row, key, target_attr)
-        for he in hyperedges:
-            he_cells = list(he)
-            for i in range(len(he_cells)):
-                for j in range(i+1, len(he_cells)):
-                    u, v = he_cells[i], he_cells[j]
-                    adjacency[u].append(v)
-                    adjacency[v].append(u)
+    # 3.3) BFS over attributes (just to discover new heads at each level)
+    visited_attrs: Set[str] = {start_attr}
+    frontier: List[str] = [start_attr]
 
-    return adjacency
+    while frontier:
+        next_frontier: List[str] = []
+        for target_attr in frontier:
+            head_cell = all_cells[target_attr]
+            hyperedges = build_hyperedges(row, key, target_attr)
 
-# 4) Example usage
+            for he in hyperedges:
+                # 3.3.1) Record this entire Hyperedge under its head (separately)
+                hyperedge_map[head_cell].append(he)
+
+                # 3.3.2) Enqueue each tail‐attribute if not yet visited
+                for tail_cell in he:
+                    col = tail_cell.attribute.col
+                    if col not in visited_attrs:
+                        visited_attrs.add(col)
+                        next_frontier.append(col)
+
+        frontier = next_frontier
+
+    return hyperedge_map
+
+
+# ----------------------------------------------------------------------------- 
+# 4) NEW: Recursively print a “tree” of hyperedges, rooted at `start_attr`:
+def print_hyperedge_tree(
+    row: Dict[str, Any],
+    key: Any,
+    start_attr: str,
+    hyperedge_map: Dict[Cell, List[Hyperedge]],
+    visited: Set[str] = None,
+    indent: int = 0
+):
+    """
+    Recursively print a tree of Hyperedges, rooted at `start_attr`, **skipping**
+    any hyperedge whose tails have no previously-unseen attributes.
+    """
+    if visited is None:
+        visited = {start_attr}
+
+    # 1) Print the head cell
+    head_cell = Cell(Attribute('adult_data', start_attr), key, row[start_attr])
+    print("  " * indent + repr(head_cell))
+
+    # 2) For each Hyperedge under this head, check if it has any NEW tail attribute
+    for he in hyperedge_map.get(head_cell, []):
+        # Find tails that are brand-new
+        new_tails = [tail for tail in he if tail.attribute.col not in visited]
+        if not new_tails:
+            # All tails are already visited → skip this entire hyperedge
+            continue
+
+        # Otherwise, print the hyperedge (since it contributes at least one new attribute)
+        print("  " * (indent + 1) + repr(he))
+
+        # 3) Recurse only on those new tails
+        for tail_cell in sorted(new_tails, key=lambda c: c.attribute.col):
+            col = tail_cell.attribute.col
+            visited.add(col)
+            print_hyperedge_tree(row, key, col, hyperedge_map, visited, indent + 2)
+
+
+# ----------------------------------------------------------------------------- 
+# 5) Example usage: replace your old __main__ with this block
 if __name__ == '__main__':
     db = dbw.DatabaseWrapper(dbw.DatabaseConfig())
     key = 2
@@ -90,16 +138,27 @@ if __name__ == '__main__':
     row = db.fetch_one(sql, (key,))
     print("Row:", row)
 
-    # 4.1 Print hyperedges for 'education'
-    education_edges = build_hyperedges(row, key, 'education')
-    print("\nHyperedges for 'education':")
-    for e in education_edges:
-        print("  ", e)
+    root_attr = 'education'
+    root_cell = Cell(Attribute('adult_data', root_attr), key, row[root_attr])
 
-    # 4.2 Build and display the full DC-violation graph
-    graph = build_graph(row, key)
-    print("\nGraph adjacency list:")
-    for head_cell, neighbors in graph.items():
-        print(f"  {head_cell} → {neighbors}")
+    # Build the hyperedge map (each head → list of Hyperedges)
+    hyperedge_map = build_hyperedge_map(row, key, root_attr)
+
+    # 5.1) Print each Hyperedge under its head, separately (flat view):
+    print("\nHyperedges (one per DC) for each head:")
+    for head_cell, hes in hyperedge_map.items():
+        if hes:  # only print heads that actually have hyperedges
+            print(f"Head {head_cell}:")
+            for he in hes:
+                print("   ", he)
+
+    # 5.2) Print only those under 'education' (flat):
+    print("\nHyperedges under education[2]:")
+    for he in hyperedge_map[root_cell]:
+        print("   ", he)
+
+    # 5.3) Print the full tree starting at 'education'
+    print("\nHyperedge tree rooted at 'education':")
+    print_hyperedge_tree(row, key, root_attr, hyperedge_map)
 
     db.close()
