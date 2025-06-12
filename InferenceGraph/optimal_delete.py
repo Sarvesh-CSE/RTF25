@@ -1,5 +1,5 @@
 
-from typing import Any, Set
+from typing import Set
 from collections import deque
 import sys, os
 
@@ -23,7 +23,13 @@ def compute_costs(node: GraphNode) -> int:
         for child in children:
             compute_costs(child)
         # pick the child with minimal cost
-        min_child = min(children, key=lambda c: c.cost)
+        # min_child = min(children, key=lambda c: c.cost)
+        # Assume children is non-empty
+        min_child = children[0]
+        for c in children[1:]:
+            if c.cost < min_child.cost:
+                min_child = c
+                
         he.min_cell = min_child.cell
         total += min_child.cost
     node.cost = total
