@@ -4,18 +4,19 @@ This subfolder builds dependency graphs, instantiates hyperedges from DCs, and c
 
 ## Scripts
 
-* **build\_hypergraph.py**
-  Traverses the attribute graph to instantiate the **cell‑level hypergraph** Δ(c):
-
-  * Creates `GraphNode` objects for each reachable *Cell*.
-  * Records `node.branches` for each hyperedge instantiation.
-
 * **bulid\_hyperedges.py**
   For a given target row and attribute:
 
   1. **Fetches** the database row via `fetch_row`.
   2. Scans all DCs to **build hyperedges** mapping head predicates → tail cells.
-  3. Returns a mapping of hyperedges used by `build_hypergrapgh.py`.
+  3. Returns a mapping of hyperedges used by `build_hypergraph.py`.
+  
+
+* **build\_hypergraph.py**
+  Traverses the attribute graph to instantiate the **cell‑level hypergraph** Δ(c):
+
+  * Creates `GraphNode` objects for each reachable *Cell*.
+  * Records `node.branches` for each hyperedge instantiation.
 
 * **optimal\_delete.py**
   Implements `optimal_delete(root, deleted)` using:

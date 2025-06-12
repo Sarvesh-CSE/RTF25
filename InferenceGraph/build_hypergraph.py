@@ -1,9 +1,8 @@
 from typing import Any, List, Tuple, Dict, Set
+
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path for import resolution
-import db_wrapper as dbw
 from cell import Attribute, Cell, Hyperedge
-from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints
 from InferenceGraph.bulid_hyperedges import build_hyperedge_map, fetch_row
 
 # ----------------------------------------------------------------------------- 
@@ -12,7 +11,7 @@ class GraphNode:
     A node in the hyperedge inference tree.  Each branch is a (hyperedge, child_nodes) pair.
     """
     def __init__(self, cell: Cell):
-        self.cell: Cell = cell
+        self.cell: Cell = cell # Cell is your (table, column, value, key) object.
         self.branches: List[Tuple[Hyperedge, List['GraphNode']]] = []
 
     def add_branch(self, he: Hyperedge, children: List['GraphNode']) -> None:
@@ -31,7 +30,7 @@ def build_hypergraph_tree(
     row: Dict[str, Any],
     key: Any,
     start_attr: str,
-    hyperedge_map: Dict[Cell, List[Hyperedge]]
+    hyperedge_map: Dict[Cell, List[Hyperedge]] # hem (hyperedge‐map) tells you, for any head Cell, which hyperedges to expand.
 ) -> GraphNode:
     """
     Build an in-memory tree of GraphNode from start_attr, using BFS-derived hyperedge_map.
@@ -41,36 +40,40 @@ def build_hypergraph_tree(
     node_map: Dict[str, GraphNode] = {}
 
     def recurse(attr: str, snapshot: Set[str]) -> GraphNode:
+        # 1) Create or reuse the node for this attribute
         cell = Cell(Attribute('adult_data', attr), key, row[attr])
         if attr in node_map:
             return node_map[attr]
         node = GraphNode(cell)
         node_map[attr] = node
         current_snapshot = set(snapshot)
-
+         # 2) For each hyperedge where this cell is the head...
         for he in hyperedge_map.get(cell, []):
             tail_cells = list(he)
             tail_attrs = [tc.attribute.col for tc in tail_cells]
-            # skip branches whose tails have all been seen
+            # 3) Skip if all tail attributes already in this path
             if all(t in current_snapshot for t in tail_attrs):
                 continue
+            
+            # 4) Otherwise, recurse on each unseen tail
             new_snapshot = current_snapshot.union(tail_attrs)
             child_nodes: List[GraphNode] = []
+            
             for tc in tail_cells:
                 if tc.attribute.col not in current_snapshot:
                     child = recurse(tc.attribute.col, new_snapshot)
                     child_nodes.append(child)
+            # 5) Attach the branch (he, children) to our node
             node.add_branch(he, child_nodes)
 
         return node
-
+     # Kick off recursion from the start attribute
     return recurse(start_attr, visited)
 
 def main():
     key = 2
-    row = fetch_row(key)
+    row = fetch_row(key) # fetch_row(key) grabs the target tuple from your database as a Python dict.
     root_attr = 'education'
-    root_cell = Cell(Attribute('adult_data', root_attr), key, row[root_attr])
     root = build_hypergraph_tree(row, key, root_attr, build_hyperedge_map(row, key, root_attr))
 
     # Traverse or integrate optimal-delete logic:
