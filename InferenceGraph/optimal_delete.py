@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
 
 
 from InferenceGraph.bulid_hyperedges import build_hyperedge_map, fetch_row
-from InferenceGraph.build_hypergrapgh import build_hypergraph_tree, GraphNode
+from InferenceGraph.build_hypergraph import build_hypergraph_tree, GraphNode
 from cell import Cell
 
 def compute_costs(node: GraphNode) -> int:
@@ -29,7 +29,7 @@ def compute_costs(node: GraphNode) -> int:
         for c in children[1:]:
             if c.cost < min_child.cost:
                 min_child = c
-                
+
         he.min_cell = min_child.cell
         total += min_child.cost
     node.cost = total
