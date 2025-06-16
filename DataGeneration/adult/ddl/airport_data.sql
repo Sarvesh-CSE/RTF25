@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `airports` (
+    `id` INTEGER PRIMARY KEY,
+    `ident` VARCHAR(10) NOT NULL,
+    `type` VARCHAR(50) NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `latitude_deg` DECIMAL(10, 6),
+    `longitude_deg` DECIMAL(10, 6),
+    `elevation_ft` INTEGER,
+    `continent` VARCHAR(10),
+    `iso_country` VARCHAR(10),
+    `iso_region` VARCHAR(10),
+    `municipality` VARCHAR(100),
+    `scheduled_service` VARCHAR(10),
+    `gps_code` VARCHAR(10),
+    `iata_code` VARCHAR(10),
+    `local_code` VARCHAR(10),
+    `home_link` TEXT,
+    `wikipedia_link` TEXT,
+    `keywords` TEXT
+);
