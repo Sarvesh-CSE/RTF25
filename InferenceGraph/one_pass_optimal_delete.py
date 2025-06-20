@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-Ultra Compact RTF Script - Maximum Performance, Minimum Code
-
 Combines build_hypergraph.py + optimal_delete.py with all optimizations:
 - Cost computation during construction
 - Direct node references (no find_node)
@@ -18,26 +16,39 @@ from InferenceGraph.bulid_hyperedges import build_hyperedge_map, fetch_row
 
 
 class Node:
+    """
+    Represents a database cell in the RTF dependency graph.
+    
+    Each node tracks:
+    - cell: The database cell this node represents
+    - branches: List of (hyperedge, children) representing dependencies  
+    - cost: Total cost to delete this cell and handle all its constraints
+    """
     def __init__(self, cell: Cell):
         self.cell = cell
         self.branches = []
         self.cost = 1
 
     def add_branch(self, he: Hyperedge, children: List['Node']):
+        """Add a hyperedge branch and update deletion costs."""
         self.branches.append((he, children))
         
         if children:
-            # Find child with minimum cost for this hyperedge
+            # Find the cheapest child to delete for this specific hyperedge
+            # (We only need to delete ONE child to break the constraint)
             min_child = children[0]
             for child in children[1:]:
                 if child.cost < min_child.cost:
                     min_child = child
+            # Store the cheapest child for optimal deletion path
             he.min_node = min_child
             
-            # Update total cost: 1 + sum of minimum costs from all hyperedges
-            total_cost = 1  # Cost of deleting this node
+            # Recalculate total cost for this node
+            # Cost = 1 (delete self) + sum of cheapest deletions for ALL constraints
+            total_cost = 1  # Base cost of deleting this node
             for hyperedge, hyperedge_children in self.branches:
                 if hyperedge_children:
+                    # Find cheapest child for each constraint this node is involved in
                     min_hyperedge_child = hyperedge_children[0]
                     for child in hyperedge_children[1:]:
                         if child.cost < min_hyperedge_child.cost:
@@ -48,47 +59,63 @@ class Node:
 
 
 def build_tree(row: Dict, key: Any, start_attr: str, hyperedge_map: Dict) -> Tuple[Node, Dict[Cell, Node]]:
-    nodes, cell_map = {}, {}
+    """
+    Build dependency tree starting from target attribute.
+    Returns root node and mapping from cells to nodes.
+    """
+    attribute_to_node = {}  # Maps attribute names to their nodes
+    cell_to_node_map = {}   # Maps cell objects to their nodes
     
-    def build(attr: str, visited: Set[str]) -> Node:
-        cell = Cell(Attribute('adult_data', attr), key, row[attr])
-        if attr in nodes:
-            return nodes[attr]
+    def build_node_recursively(current_attr: str, visited_attrs: Set[str]) -> Node:
+        """Recursively build nodes for each attribute and its dependencies."""
+        # Create cell object for current attribute
+        current_cell = Cell(Attribute('adult_data', current_attr), key, row[current_attr])
         
-        node = Node(cell)
-        nodes[attr] = node
-        cell_map[cell] = node
+        # Return existing node if already created (avoid duplicates)
+        if current_attr in attribute_to_node:
+            return attribute_to_node[current_attr]
         
-        for he in hyperedge_map.get(cell, []):
-            # Get all attribute names from this hyperedge
-            tail_attrs = []
-            for tail_cell in he:
-                tail_attrs.append(tail_cell.attribute.col)
+        # Create new node and store in both mappings
+        current_node = Node(current_cell)
+        attribute_to_node[current_attr] = current_node
+        cell_to_node_map[current_cell] = current_node
+        
+        # Process all hyperedges (constraints) involving this cell
+        for hyperedge in hyperedge_map.get(current_cell, []):
+            # Extract all attribute names from this hyperedge
+            attributes_in_hyperedge = []
+            for tail_cell in hyperedge:
+                attributes_in_hyperedge.append(tail_cell.attribute.col)
             
-            # Skip if all attributes already in current path (avoid cycles)
-            all_visited = True
-            for attr in tail_attrs:
-                if attr not in visited:
-                    all_visited = False
+            # Skip if all attributes already visited (prevents infinite cycles)
+            all_attrs_already_visited = True
+            for attr_name in attributes_in_hyperedge:
+                if attr_name not in visited_attrs:
+                    all_attrs_already_visited = False
                     break
-            if all_visited:
+            if all_attrs_already_visited:
                 continue
             
-            # Build children for unvisited attributes
-            children = []
-            new_visited = visited.copy()
-            for tail_cell in he:
-                new_visited.add(tail_cell.attribute.col)
+            # Build child nodes for unvisited attributes
+            child_nodes = []
+            new_visited_set = visited_attrs.copy()
+            for tail_cell in hyperedge:
+                new_visited_set.add(tail_cell.attribute.col)
             
-            for tail_cell in he:
-                if tail_cell.attribute.col not in visited:
-                    child_node = build(tail_cell.attribute.col, new_visited)
-                    children.append(child_node)
-            if children:
-                node.add_branch(he, children)
-        return node
+            for tail_cell in hyperedge:
+                if tail_cell.attribute.col not in visited_attrs:
+                    child_node = build_node_recursively(tail_cell.attribute.col, new_visited_set)
+                    child_nodes.append(child_node)
+            
+            # Add this hyperedge as a branch if we have children
+            if child_nodes:
+                current_node.add_branch(hyperedge, child_nodes)
+        
+        return current_node
     
-    return build(start_attr, {start_attr}), cell_map
+    # Start building from the target attribute
+    root_node = build_node_recursively(start_attr, {start_attr})
+    return root_node, cell_to_node_map
 
 
 def optimal_delete(target: Cell, cell_map: Dict[Cell, Node]) -> Set[Cell]:
