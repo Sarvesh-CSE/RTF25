@@ -5,7 +5,6 @@ Ultra Compact RTF Script - Maximum Performance, Minimum Code
 Combines build_hypergraph.py + optimal_delete.py with all optimizations:
 - Cost computation during construction
 - Direct node references (no find_node)
-- 50-70% performance improvement in ~50 lines
 """
 
 import sys
