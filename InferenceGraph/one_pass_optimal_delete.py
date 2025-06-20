@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 Combines build_hypergraph.py + optimal_delete.py with all optimizations:
 - Cost computation during construction
 - Direct node references (no find_node)
@@ -84,8 +85,8 @@ def build_tree(row: Dict, key: Any, start_attr: str, hyperedge_map: Dict) -> Tup
         for hyperedge in hyperedge_map.get(current_cell, []):
             # Extract all attribute names from this hyperedge
             attributes_in_hyperedge = []
-            for tail_cell in hyperedge:
-                attributes_in_hyperedge.append(tail_cell.attribute.col)
+            for cell_in_dc in hyperedge:  # ALL cells in this denial constraint
+                attributes_in_hyperedge.append(cell_in_dc.attribute.col)
             
             # Skip if all attributes already visited (prevents infinite cycles)
             all_attrs_already_visited = True
@@ -99,12 +100,12 @@ def build_tree(row: Dict, key: Any, start_attr: str, hyperedge_map: Dict) -> Tup
             # Build child nodes for unvisited attributes
             child_nodes = []
             new_visited_set = visited_attrs.copy()
-            for tail_cell in hyperedge:
-                new_visited_set.add(tail_cell.attribute.col)
+            for cell_in_dc in hyperedge:  # ALL cells in this denial constraint
+                new_visited_set.add(cell_in_dc.attribute.col)
             
-            for tail_cell in hyperedge:
-                if tail_cell.attribute.col not in visited_attrs:
-                    child_node = build_node_recursively(tail_cell.attribute.col, new_visited_set)
+            for cell_in_dc in hyperedge:  # ALL cells in this denial constraint
+                if cell_in_dc.attribute.col not in visited_attrs:  # Filter out head
+                    child_node = build_node_recursively(cell_in_dc.attribute.col, new_visited_set)
                     child_nodes.append(child_node)
             
             # Add this hyperedge as a branch if we have children
