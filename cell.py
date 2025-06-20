@@ -54,7 +54,7 @@ class Cell:
 class Hyperedge(set):
     """
     A Hyperedge is a collection of Cell objects representing cells linked by a denial constraint.
-    It simply holds those Cell instances; no further computation (like min) is done here.
+    It simply holds those Cell instances.
     """
     def __init__(self, cells=None):
         super().__init__(cells or [])

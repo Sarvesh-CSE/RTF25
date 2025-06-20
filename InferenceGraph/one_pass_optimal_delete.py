@@ -152,7 +152,7 @@ def find_node(node: OptimizedGraphNode, target: Cell) -> OptimizedGraphNode:
         return node
     for _, children in node.branches:
         for child in children:
-            found = find_node(child, target)
+            found = find_node(child, target) # O(n) tree traversal EVERY TIME!
             if found:
                 return found
     return None

@@ -72,7 +72,7 @@ def optimal_delete(root: GraphNode, deleted: Cell) -> Set[Cell]:
             m = he.min_cell
             if m not in to_delete:
                 to_delete.add(m)
-                nxt = find_node(root, m)
+                nxt = find_node(root, m) # we are doing O(n) tree traversals for each cell in the BFS queue!
                 if nxt:
                     queue.append(nxt)
 
