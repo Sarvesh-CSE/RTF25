@@ -1,9 +1,9 @@
-from proess_data import target_eid
+from IDcomputation.proess_data import target_eid
 import mysql.connector
 import argparse
 import json
 import os
-from IGC_c_get_global_domain_mysql import AttributeDomainComputation
+from IDcomputation.IGC_c_get_global_domain_mysql import AttributeDomainComputation
 
 class DatabaseConfig:
     """Database configuration and connection management."""

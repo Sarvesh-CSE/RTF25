@@ -50,6 +50,10 @@ class Cell:
     def __hash__(self):
         # Allow Cells to live in sets or be dict keys
         return hash((self.attribute, self.key, self.value))
+    
+    def __iter__(self):
+        """Iterate in deterministic order"""
+        return iter(sorted(super().__iter__(), key=lambda c: (c.attribute.table, c.attribute.col, str(c.value))))
 
 class Hyperedge(set):
     """

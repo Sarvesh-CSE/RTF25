@@ -8,8 +8,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path
 
-from IGC_c_get_global_domain_mysql import AttributeDomainComputation
-from IGC_d_getBounds import DatabaseConfig
+from IDcomputation.IGC_c_get_global_domain_mysql import AttributeDomainComputation
+
+from IDcomputation.IGC_d_getBounds import DatabaseConfig
 from DCandDelset.dc_configs.topAdultDCs_parsed import denial_constraints
 from DCandDelset import dc_lookup
 
