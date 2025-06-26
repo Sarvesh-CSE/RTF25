@@ -1,123 +1,235 @@
 #!/usr/bin/env python3
 """
-Compact RTF (Right To Be Forgotten) Analysis
-Tests single vs batch deletion performance
+Compact RTF deletion performance evaluator.
+Measures: Query Time | Graph Building | Deletion Computation | Total | Memory
 """
 
 import sys
 import os
-import argparse
 import time
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import tracemalloc
+from typing import List, Tuple, Set
+from dataclasses import dataclass
 
-# Import InferenceGraph components
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cell import Attribute, Cell
 from InferenceGraph.bulid_hyperedges import build_hyperedge_map, fetch_row
 from InferenceGraph.build_hypergraph import build_hypergraph_tree
-from InferenceGraph.optimal_delete import optimal_delete
-from InferenceGraph.one_pass_optimal_delete import compute_deletion_set
-from cell import Cell, Attribute
-import db_wrapper
+from InferenceGraph.optimal_delete import optimal_delete, compute_costs, find_node
+from InferenceGraph.one_pass_optimal_delete import compute_deletion_set as one_pass_deletion
 
-def get_row_keys(num_rows):
-    """Get row keys from database"""
-    db = db_wrapper.DatabaseWrapper(db_wrapper.DatabaseConfig())
-    rows = db.execute_query(f"SELECT id FROM adult_data LIMIT {num_rows}")
-    keys = [row['id'] for row in rows]
-    db.close()
-    return keys
+@dataclass
+class Metrics:
+    query_time: float = 0.0
+    graph_time: float = 0.0
+    deletion_time: float = 0.0
+    memory_mb: float = 0.0
+    deletion_size: int = 0
+    success: bool = True
 
-def single_analysis(key, target_attr):
-    """Single row deletion analysis"""
-    print(f"=== Single Row Analysis ===")
-    print(f"Key: {key}, Target: {target_attr}")
+def measure_approach(approach_name: str, eval_func, key: int, target_attr: str) -> Metrics:
+    """Measure performance of a single approach."""
+    try:
+        tracemalloc.start()
+        start = time.perf_counter()
+        
+        deletion_set = eval_func(key, target_attr)
+        
+        _, peak = tracemalloc.get_traced_memory()
+        total_time = time.perf_counter() - start
+        tracemalloc.stop()
+        
+        return Metrics(
+            query_time=0.0,  # Set by individual evaluators
+            graph_time=0.0,  # Set by individual evaluators  
+            deletion_time=total_time,  # Default fallback
+            memory_mb=peak / 1024 / 1024,
+            deletion_size=len(deletion_set),
+            success=True
+        )
+    except Exception as e:
+        tracemalloc.stop()
+        return Metrics(success=False)
+
+def eval_multi_pass(key: int, target_attr: str) -> Set[Cell]:
+    """Multi-pass approach with timing breakdown."""
+    global last_metrics
     
-    # Build components
+    # Query time
+    query_start = time.perf_counter()
     row = fetch_row(key)
+    query_time = time.perf_counter() - query_start
+    
+    # Graph building
+    graph_start = time.perf_counter()
     hyperedge_map = build_hyperedge_map(row, key, target_attr)
-    target_cell = Cell(Attribute('adult_data', target_attr), key, row[target_attr])
     root = build_hypergraph_tree(row, key, target_attr, hyperedge_map)
+    graph_time = time.perf_counter() - graph_start
     
-    # Time both algorithms
-    start = time.time()
-    one_pass_set = compute_deletion_set(key, target_attr)
-    one_pass_time = time.time() - start
+    # Deletion computation
+    deletion_start = time.perf_counter()
+    compute_costs(root)
+    start_node = find_node(root, root.cell)
+    deletion_set = optimal_delete(root, root.cell)
+    deletion_time = time.perf_counter() - deletion_start
     
-    start = time.time()
-    traditional_set = optimal_delete(root, target_cell)
-    traditional_time = time.time() - start
-    
-    # Results
-    speedup = traditional_time / one_pass_time if one_pass_time > 0 else 0
-    print(f"Graph: {len(hyperedge_map)} cells")
-    print(f"One-pass: {len(one_pass_set)} cells in {one_pass_time:.4f}s")
-    print(f"Traditional: {len(traditional_set)} cells in {traditional_time:.4f}s")
-    print(f"Speedup: {speedup:.2f}x {'(One-pass wins)' if speedup > 1 else '(Traditional wins)'}")
-    
-    return len(one_pass_set)
+    # Store detailed timing
+    last_metrics = Metrics(query_time=query_time, graph_time=graph_time, deletion_time=deletion_time)
+    return deletion_set
 
-def batch_analysis(target_attr, num_rows):
-    """Batch deletion analysis"""
-    print(f"=== Batch Analysis ===")
-    print(f"Target: {target_attr}, Rows: {num_rows}")
+def eval_one_pass(key: int, target_attr: str) -> Set[Cell]:
+    """One-pass approach with timing breakdown."""
+    global last_metrics
     
-    keys = get_row_keys(num_rows)
-    print(f"Processing {len(keys)} rows...")
+    # Query time
+    query_start = time.perf_counter()
+    row = fetch_row(key)
+    query_time = time.perf_counter() - query_start
     
-    # One-pass batch
-    start = time.time()
-    one_pass_total = 0
-    for key in keys:
-        try:
-            deletion_set = compute_deletion_set(key, target_attr)
-            one_pass_total += len(deletion_set)
-        except:
-            pass
-    one_pass_time = time.time() - start
+    # Combined computation
+    combined_start = time.perf_counter()
+    deletion_set = one_pass_deletion(key, target_attr)
+    combined_time = time.perf_counter() - combined_start
     
-    # Traditional batch
-    start = time.time()
-    traditional_total = 0
-    for key in keys:
-        try:
-            row = fetch_row(key)
-            hyperedge_map = build_hyperedge_map(row, key, target_attr)
-            root = build_hypergraph_tree(row, key, target_attr, hyperedge_map)
-            target_cell = Cell(Attribute('adult_data', target_attr), key, row[target_attr])
-            deletion_set = optimal_delete(root, target_cell)
-            traditional_total += len(deletion_set)
-        except:
-            pass
-    traditional_time = time.time() - start
+    # Estimate breakdown (quick graph build for measurement)
+    graph_start = time.perf_counter()
+    build_hyperedge_map(row, key, target_attr)
+    estimated_graph_time = time.perf_counter() - graph_start
     
-    # Results
-    speedup = traditional_time / one_pass_time if one_pass_time > 0 else 0
-    ops_per_sec_one = one_pass_total / one_pass_time if one_pass_time > 0 else 0
-    ops_per_sec_trad = traditional_total / traditional_time if traditional_time > 0 else 0
+    last_metrics = Metrics(
+        query_time=query_time,
+        graph_time=estimated_graph_time,
+        deletion_time=combined_time - estimated_graph_time
+    )
+    return deletion_set
+
+def eval_true_one_pass(key: int, target_attr: str) -> Set[Cell]:
+    """True one-pass approach with timing breakdown."""
+    global last_metrics
+    from InferenceGraph.one_pass_optimal_delete import build_tree, optimal_delete as true_optimal
     
-    print(f"One-pass: {one_pass_total} cells in {one_pass_time:.3f}s ({ops_per_sec_one:.0f} ops/sec)")
-    print(f"Traditional: {traditional_total} cells in {traditional_time:.3f}s ({ops_per_sec_trad:.0f} ops/sec)")
-    print(f"Speedup: {speedup:.2f}x {'🚀 One-pass wins!' if speedup > 1 else '🐌 Traditional wins'}")
+    # Query time
+    query_start = time.perf_counter()
+    row = fetch_row(key)
+    query_time = time.perf_counter() - query_start
     
-    return one_pass_total
+    # Graph building with integrated costs
+    graph_start = time.perf_counter()
+    hyperedge_map = build_hyperedge_map(row, key, target_attr)
+    root, cell_map = build_tree(row, key, target_attr, hyperedge_map)
+    graph_time = time.perf_counter() - graph_start
+    
+    # Deletion extraction
+    deletion_start = time.perf_counter()
+    target_cell = Cell(Attribute('adult_data', target_attr), key, row[target_attr])
+    deletion_set = true_optimal(target_cell, cell_map)
+    deletion_time = time.perf_counter() - deletion_start
+    
+    last_metrics = Metrics(query_time=query_time, graph_time=graph_time, deletion_time=deletion_time)
+    return deletion_set
+
+def run_evaluation(test_cases: List[Tuple[int, str]]):
+    """Run compact performance evaluation."""
+    global last_metrics
+    
+    print("="*80)
+    print("RTF DELETION PERFORMANCE EVALUATION")
+    print("="*80)
+    print("Metrics: Query | Graph | Deletion | Total | Memory | Del-Set")
+    print("="*80)
+    
+    approaches = [
+        ("Multi-pass", eval_multi_pass),
+        ("One-pass", eval_one_pass),
+        ("True One-pass", eval_true_one_pass)
+    ]
+    
+    all_results = []
+    
+    for i, (key, target_attr) in enumerate(test_cases, 1):
+        print(f"\nCase {i}: key={key}, attr='{target_attr}'")
+        print("-" * 50)
+        
+        for approach_name, eval_func in approaches:
+            last_metrics = None
+            metrics = measure_approach(approach_name, eval_func, key, target_attr)
+            
+            if last_metrics:  # Use detailed breakdown if available
+                metrics.query_time = last_metrics.query_time
+                metrics.graph_time = last_metrics.graph_time
+                metrics.deletion_time = last_metrics.deletion_time
+            
+            if metrics.success:
+                total = metrics.query_time + metrics.graph_time + metrics.deletion_time
+                print(f"{approach_name:13} | "
+                      f"{metrics.query_time:5.3f}s | "
+                      f"{metrics.graph_time:5.3f}s | "
+                      f"{metrics.deletion_time:8.4f}s | "
+                      f"{total:5.3f}s | "
+                      f"{metrics.memory_mb:5.2f}MB | "
+                      f"{metrics.deletion_size:2d}")
+                all_results.append((approach_name, metrics))
+            else:
+                print(f"{approach_name:13} | FAILED")
+    
+    # Summary
+    print("\n" + "="*80)
+    print("SUMMARY")
+    print("="*80)
+    
+    by_approach = {}
+    for name, metrics in all_results:
+        if name not in by_approach:
+            by_approach[name] = []
+        by_approach[name].append(metrics)
+    
+    for name, metrics_list in by_approach.items():
+        if not metrics_list:
+            continue
+            
+        avg_query = sum(m.query_time for m in metrics_list) / len(metrics_list)
+        avg_graph = sum(m.graph_time for m in metrics_list) / len(metrics_list)
+        avg_deletion = sum(m.deletion_time for m in metrics_list) / len(metrics_list)
+        avg_total = avg_query + avg_graph + avg_deletion
+        avg_memory = sum(m.memory_mb for m in metrics_list) / len(metrics_list)
+        avg_del_size = sum(m.deletion_size for m in metrics_list) / len(metrics_list)
+        
+        print(f"\n{name}:")
+        print(f"  Query:    {avg_query:.4f}s ({avg_query/avg_total*100:.1f}%)")
+        print(f"  Graph:    {avg_graph:.4f}s ({avg_graph/avg_total*100:.1f}%)")
+        print(f"  Deletion: {avg_deletion:.4f}s ({avg_deletion/avg_total*100:.1f}%)")
+        print(f"  Total:    {avg_total:.4f}s")
+        print(f"  Memory:   {avg_memory:.2f}MB")
+        print(f"  Del-Size: {avg_del_size:.1f}")
+    
+    # Performance comparison
+    if len(by_approach) > 1:
+        approaches = list(by_approach.keys())
+        baseline = by_approach[approaches[0]]
+        baseline_avg_deletion = sum(m.deletion_time for m in baseline) / len(baseline)
+        
+        print(f"\nDeletion Computation Speedup (vs {approaches[0]}):")
+        for name in approaches[1:]:
+            metrics_list = by_approach[name]
+            avg_deletion = sum(m.deletion_time for m in metrics_list) / len(metrics_list)
+            speedup = baseline_avg_deletion / avg_deletion if avg_deletion > 0 else float('inf')
+            print(f"  {name}: {speedup:.0f}x faster")
 
 def main():
-    parser = argparse.ArgumentParser(description='Compact RTF Analysis')
-    parser.add_argument('--key', '-k', type=int, default=2, help='Row key (single mode)')
-    parser.add_argument('--attr', '-a', default='education', help='Target attribute')
-    parser.add_argument('--batch', '-b', type=int, help='Batch mode: number of rows')
+    """Main entry point."""
+    global last_metrics
+    last_metrics = None
     
-    args = parser.parse_args()
+    # Default test cases
+    test_cases = [
+        (2, 'education'),
+        (3, 'occupation'), 
+        (4, 'workclass'),
+        (5, 'relationship'),
+        (1, 'age')
+    ]
     
-    try:
-        if args.batch:
-            cells_deleted = batch_analysis(args.attr, args.batch)
-        else:
-            cells_deleted = single_analysis(args.key, args.attr)
-        
-        print(f"\n✅ Analysis complete: {cells_deleted} total cells deleted")
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    run_evaluation(test_cases)
 
 if __name__ == "__main__":
     main()
