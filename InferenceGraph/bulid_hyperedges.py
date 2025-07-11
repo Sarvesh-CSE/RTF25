@@ -13,9 +13,6 @@ def fetch_row(key: int):
     db.close()
     return row
 
-    sql = "SELECT * FROM adult_data WHERE id = %s LIMIT 1;"
-    row = db.fetch_one(sql, (key,))
-    print("Row:", row)
 
 # -----------------------------------------------------------------------------
 # 1) Build hyperedges for a single target attribute
