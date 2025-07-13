@@ -2,6 +2,7 @@ import mysql.connector
 import json
 import os
 import argparse
+from decimal import Decimal
 
 class AttributeDomainComputation:
     """Computes and manages attribute domains for database tables."""
@@ -14,6 +15,14 @@ class AttributeDomainComputation:
     
     NUMERIC_TYPES = {'int', 'bigint', 'smallint', 'decimal', 'float', 'double', 'numeric', 'real'}
     STRING_TYPES = {'varchar', 'char', 'text', 'enum', 'set'}
+    
+    # MySQL reserved keywords that need backticks
+    RESERVED_KEYWORDS = {
+        'condition', 'order', 'group', 'where', 'select', 'from', 'insert', 
+        'update', 'delete', 'create', 'drop', 'alter', 'index', 'key', 'primary',
+        'foreign', 'references', 'constraint', 'table', 'database', 'schema',
+        'view', 'procedure', 'function', 'trigger', 'event', 'user', 'role'
+    }
 
     def __init__(self, db_name='RTF25'):
         self.domain_map = {}
@@ -25,6 +34,21 @@ class AttributeDomainComputation:
         config = self.DB_CONFIG.copy()
         config['database'] = self.db_name
         return mysql.connector.connect(**config)
+    
+    def convert_decimal_to_float(self, obj):
+        """Convert Decimal objects to float for JSON serialization."""
+        if isinstance(obj, Decimal):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {k: self.convert_decimal_to_float(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.convert_decimal_to_float(item) for item in obj]
+        return obj
+    def escape_column_name(self, column_name):
+        """Escape column names that are MySQL reserved keywords."""
+        if column_name.lower() in self.RESERVED_KEYWORDS:
+            return f"`{column_name}`"
+        return column_name
 
     def compute_and_save_domains(self):
         """Compute domains for all columns and save to file."""
@@ -60,13 +84,21 @@ class AttributeDomainComputation:
             for column_name, data_type in columns:
                 data_type = data_type.lower()
                 key = (table.lower(), column_name.lower())
+                
+                # Escape column name if it's a reserved keyword
+                escaped_column = self.escape_column_name(column_name)
 
                 if data_type in self.NUMERIC_TYPES:
                     cursor.execute(f"""
-                        SELECT MIN({column_name}), MAX({column_name})
+                        SELECT MIN({escaped_column}), MAX({escaped_column})
                         FROM {table}
                     """)
                     min_val, max_val = cursor.fetchone()
+                    
+                    # Convert Decimal objects to float for JSON serialization
+                    min_val = float(min_val) if isinstance(min_val, Decimal) else min_val
+                    max_val = float(max_val) if isinstance(max_val, Decimal) else max_val
+                    
                     self.domain_map[key] = {
                         'type': 'numeric',
                         'min': min_val,
@@ -76,10 +108,10 @@ class AttributeDomainComputation:
 
                 elif data_type in self.STRING_TYPES:
                     cursor.execute(f"""
-                        SELECT DISTINCT {column_name}
+                        SELECT DISTINCT {escaped_column}
                         FROM {table}
-                        WHERE {column_name} IS NOT NULL
-                        ORDER BY {column_name}
+                        WHERE {escaped_column} IS NOT NULL
+                        ORDER BY {escaped_column}
                     """)
                     values = [row[0] for row in cursor.fetchall()]
                     self.domain_map[key] = {
@@ -91,9 +123,12 @@ class AttributeDomainComputation:
         cursor.close()
         connection.close()
 
+        # Convert any remaining Decimal objects before saving
+        serializable_domain_map = self.convert_decimal_to_float(self.domain_map)
+        
         # Save to file
         with open(self.domain_file, 'w') as f:
-            json.dump({f"{k[0]}.{k[1]}": v for k, v in self.domain_map.items()}, f, indent=2)
+            json.dump({f"{k[0]}.{k[1]}": v for k, v in serializable_domain_map.items()}, f, indent=2)
         print(f"\nDomain map saved to: {self.domain_file}")
 
     def get_domain(self, table, column):
