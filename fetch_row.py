@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Compact Fetch Row Logic - Independent Target Tuple Retrieval
-===========================================================
+Compact Repository-Level Database Manager
+========================================
 
 Usage:
-    from fetch_row import fetch_row
+    from fetch_row import RTFDatabaseManager
     
-    row = fetch_row(2)              # Default 'adult' dataset
-    row = fetch_row(2, 'tax')       # Specific dataset
-    education = fetch_row(2)['education']  # Get specific value
+    with RTFDatabaseManager('adult') as db:
+        row = db.fetch_row(2)
+        education = db.fetch_row(2)['education']
 """
 
 import mysql.connector
@@ -19,63 +19,51 @@ from typing import Dict, Any
 # Add project root for config import
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import central config
 from config import get_database_config, get_dataset_info
 
 
-def fetch_row(target_key: int, dataset: str = 'adult') -> Dict[str, Any]:
-    """
-    Fetch target tuple from database.
+class RTFDatabaseManager:
+    """Repository-level database connection manager."""
     
-    Args:
-        target_key: Primary key of the target row
-        dataset: Dataset name ('adult', 'tax', 'hospital', etc.)
+    def __init__(self, dataset: str = 'adult'):
+        self.dataset = dataset
+        self.dataset_info = get_dataset_info(dataset)
+        self.db_config = get_database_config(dataset)
+        self.connection = None
+        self.cursor = None
         
-    Returns:
-        Dictionary with all column values for the target row
+    def __enter__(self):
+        """Open connection."""
+        self.connection = mysql.connector.connect(**self.db_config)
+        self.cursor = self.connection.cursor(dictionary=True)
+        return self
         
-    Raises:
-        ValueError: If target_key not found
-        RuntimeError: If database connection fails
-    """
-    try:
-        # Get config for dataset
-        db_config = get_database_config(dataset)
-        dataset_info = get_dataset_info(dataset)
-        
-        # Connect and query
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-        
-        query = f"SELECT * FROM {dataset_info['primary_table']} WHERE {dataset_info['key_column']} = %s LIMIT 1"
-        cursor.execute(query, (target_key,))
-        row = cursor.fetchone()
-        
-        cursor.close()
-        conn.close()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Close connection."""
+        if self.cursor:
+            self.cursor.close()
+        if self.connection:
+            self.connection.close()
+    
+    def fetch_row(self, target_key: int) -> Dict[str, Any]:
+        """Fetch target tuple."""
+        query = f"SELECT * FROM {self.dataset_info['primary_table']} WHERE {self.dataset_info['key_column']} = %s LIMIT 1"
+        self.cursor.execute(query, (target_key,))
+        row = self.cursor.fetchone()
         
         if row is None:
-            raise ValueError(f"No row found with {dataset_info['key_column']}={target_key}")
+            raise ValueError(f"No row found with {self.dataset_info['key_column']}={target_key}")
         
         return row
-        
-    except mysql.connector.Error as e:
-        raise RuntimeError(f"Database error: {e}")
 
-
-# ============================================================================
-# TESTING
-# ============================================================================
 
 if __name__ == "__main__":
-    # Test fetch_row
-    row = fetch_row(2)
-    print(f"Row 2 education: {row.get('education', 'N/A')}")
-    
-    # Test different dataset
-    try:
-        tax_row = fetch_row(2, 'tax')
-        print(tax_row)
-        print(f"Tax row 2: ✓")
-    except Exception as e:
-        print(f"Tax row 2: ✗ ({e})")
+    # Test repository-level connection
+    with RTFDatabaseManager('adult') as db: 
+        # ↑ __enter__ called: connection opens, cursor created
+        row1 = db.fetch_row(2)
+        row2 = db.fetch_row(3)
+        print(f"Row 2 education: {row1.get('education', 'N/A')}")
+        print(f"Row 3 education: {row2.get('education', 'N/A')}")
+        # ↑ LAST LINE OF WITH BLOCK COMPLETES
+    # ↑ __exit__ called: connection closes, cursor destroyed
