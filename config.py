@@ -158,7 +158,7 @@ DEFAULT_TARGET_EID = 2
 # Algorithm defaults found in various files
 ALGORITHM_DEFAULTS = {
     'default_table': 'adult_data',
-    'default_target_column': 'fnlwgt',
+    'default_target_column': 'education',
     'default_key_column': 'id',
     'default_key_value': '4',
     'alpha': 0.1,
