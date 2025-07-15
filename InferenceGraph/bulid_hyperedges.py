@@ -108,44 +108,6 @@ class HyperedgeBuilder:
         
         return hyperedge_map
 
-
-# ============================================================================
-# CONVENIENCE FUNCTIONS
-# ============================================================================
-
-def build_hyperedges_for_dataset(dataset: str, target_key: int, target_attr: str) -> Dict[Cell, List[Hyperedge]]:
-    """Convenience function to build hyperedges for any dataset."""
-    builder = HyperedgeBuilder(dataset)
-    with RTFDatabaseManager(dataset) as db_manager:
-        row = db_manager.fetch_row(target_key)
-        return builder.build_hyperedge_map(row, target_key, target_attr)
-
-
-def quick_hyperedge_test(dataset: str = 'adult', target_key: int = 2, target_attr: str = None):
-    """Quick test function for any dataset."""
-    print(f"Quick hyperedge test: {dataset}, key={target_key}")
-    
-    try:
-        builder = HyperedgeBuilder(dataset)
-        
-        # Use provided target_attr or get from config
-        if target_attr is None:
-            target_attr = builder.dataset_info.get('test_attribute', 'education')
-        
-        with RTFDatabaseManager(dataset) as db_manager:
-            row = db_manager.fetch_row(target_key)
-            hyperedge_map = builder.build_hyperedge_map(row, target_key, target_attr)
-        
-        total_hyperedges = sum(len(hes) for hes in hyperedge_map.values())
-        print(f"  Using attribute: {target_attr}")
-        print(f"  Built {total_hyperedges} total hyperedges")
-        return hyperedge_map
-        
-    except Exception as e:
-        print(f"Error testing {dataset}: {e}")
-        return None
-
-
 if __name__ == "__main__":
     print("Compact Hyperedge Builder Test")
     print("=" * 35)
