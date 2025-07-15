@@ -90,7 +90,7 @@ DATASETS = {
         'dc_file': 'topHospitalDCs_parsed.py',
         'dc_raw_file': 'topHospitalDCs',
         'domain_file': 'hospital_domain_map.json',
-        'test_attribute': 'city',  # ← ADD THIS LINE
+        'test_attribute': 'City',  # ← ADD THIS LINE
     },
     
     'ncvoter': {
