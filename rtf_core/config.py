@@ -1,8 +1,8 @@
 """
-Complete RTF Configuration
-=========================
-Standalone configuration that provides all needed functions
-without circular imports.
+Enhanced Configuration for RTF (Right to Be Forgotten) Project
+============================================================
+Step 1: Adding centralized configuration
+for datasets, databases, tables, keys, DCs, and domain computation.
 """
 
 import os
@@ -23,24 +23,23 @@ PATHS = {
     'data_generation': PROJECT_ROOT / 'DataGeneration',
     'inference_graphs': PROJECT_ROOT / 'InferenceGraph', 
     'id_computation': PROJECT_ROOT / 'IDcomputation',
-    'output': PROJECT_ROOT / 'output',
+    'output': PROJECT_ROOT / 'output',  # Your existing OUTPUT_DIR
     'logs': PROJECT_ROOT / 'logs',
 }
 
 # Create output directories if they don't exist
 for path in [PATHS['output'], PATHS['logs']]:
-    if not path.exists():
-        path.mkdir(exist_ok=True)
+    path.mkdir(exist_ok=True)
 
 # ============================================================================
-# DATABASE CONFIGURATION
+# DATABASE CONFIGURATION (Centralizing from multiple files)
 # ============================================================================
 
-# Base database configuration
+# Base database configuration (from your existing config and found patterns)
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root', 
-    'password': 'uci@dbh@2084',
+    'password': 'uci@dbh@2084',  # Centralized - was hardcoded in 5+ files
     'ssl_disabled': True,
     'charset': 'utf8mb4'
 }
@@ -49,84 +48,103 @@ DB_CONFIG = {
 # COMPREHENSIVE DATASET CONFIGURATIONS
 # ============================================================================
 
-# Complete dataset configurations
+# Complete dataset configurations - datasets, databases, tables, keys, DCs, domains
 DATASETS = {
     'adult': {
         'name': 'adult',
         'database_name': 'adult',
+        'description': 'UCI Adult Census Income Dataset',
         'primary_table': 'adult_data',
         'key_column': 'id',
         'tables': ['adult_data'],
-        'domain_file': 'adult_domain_map.json',
+        'dc_config_module': 'DCandDelset.dc_configs.topAdultDCs_parsed',
         'dc_file': 'topAdultDCs_parsed.py',
         'dc_raw_file': 'topAdultDCs',
-        'dc_config_module': 'DCandDelset.dc_configs.topAdultDCs_parsed'
+        'data_generation_dir': 'adult',
+        'domain_file': 'adult_domain_map.json',
+        'test_attribute': 'education',  # ← ADD THIS LINE
     },
+    
     'tax': {
         'name': 'tax',
         'database_name': 'tax',
+        'description': 'Synthetic Tax Records Dataset',
         'primary_table': 'tax_data',
         'key_column': 'id',
         'tables': ['tax_data'],
+        'dc_config_module': 'DCandDelset.dc_configs.topTaxDCs_parsed',
+        'dc_file': 'topTaxDCs_parsed.py',
+        'dc_raw_file': 'topTaxDCs',
         'domain_file': 'tax_domain_map.json',
-        'dc_file': 'tax_dcs.py',
-        'dc_raw_file': 'tax_dcs',
-        'dc_config_module': None
+        'test_attribute': 'salary',  # ← ADD THIS LINE
     },
+    
     'hospital': {
         'name': 'hospital',
         'database_name': 'hospital',
+        'description': 'Hospital Quality Dataset',
         'primary_table': 'hospital_data',
         'key_column': 'id',
         'tables': ['hospital_data'],
+        'dc_config_module': 'DCandDelset.dc_configs.topHospitalDCs_parsed',
+        'dc_file': 'topHospitalDCs_parsed.py',
+        'dc_raw_file': 'topHospitalDCs',
         'domain_file': 'hospital_domain_map.json',
-        'dc_file': 'hospital_dcs.py',
-        'dc_raw_file': 'hospital_dcs',
-        'dc_config_module': None
+        'test_attribute': 'City',  # ← ADD THIS LINE
     },
+    
     'ncvoter': {
         'name': 'ncvoter',
         'database_name': 'ncvoter',
+        'description': 'North Carolina Voter Registration Dataset',
         'primary_table': 'ncvoter_data',
         'key_column': 'id',
         'tables': ['ncvoter_data'],
+        'dc_config_module': 'DCandDelset.dc_configs.topNCVoterDCs_parsed',
+        'dc_file': 'topNCVoterDCs_parsed.py',
+        'dc_raw_file': 'topNCVoterDCs',
         'domain_file': 'ncvoter_domain_map.json',
-        'dc_file': 'ncvoter_dcs.py',
-        'dc_raw_file': 'ncvoter_dcs',
-        'dc_config_module': None
+        'test_attribute': [],
     },
+    
     'airport': {
         'name': 'airport',
         'database_name': 'airport',
-        'primary_table': 'airport_data',
+        'description': 'Global Airports Dataset',
+        'primary_table': 'airports',
         'key_column': 'id',
-        'tables': ['airport_data'],
+        'tables': ['airports'],
+        'dc_config_module': 'DCandDelset.dc_configs.topAirportDCs_parsed',
+        'dc_file': 'topAirportDCs_parsed.py',
+        'dc_raw_file': 'topAirportDCs',
         'domain_file': 'airport_domain_map.json',
-        'dc_file': 'airport_dcs.py',
-        'dc_raw_file': 'airport_dcs',
-        'dc_config_module': None
+        'test_attribute': 'country',  
     },
+    
     'rtf25': {
         'name': 'rtf25',
         'database_name': 'RTF25',
-        'primary_table': 'rtf25_data',
-        'key_column': 'id',
-        'tables': ['rtf25_data'],
-        'domain_file': 'rtf25_domain_map.json',
+        'description': 'RTF25 Synthetic Enterprise Dataset',
+        'primary_table': 'Tax',
+        'key_column': 'EId',
+        'tables': ['Employee', 'Payroll', 'Tax'],
+        'dc_config_module': None,  # Add when available
         'dc_file': 'rtf25_dcs.py',
         'dc_raw_file': 'rtf25_dcs',
-        'dc_config_module': None
+        'domain_file': 'RTF25_domain_map.json',
     },
+    
     'tpchdb': {
         'name': 'tpchdb',
         'database_name': 'tpchdb',
-        'primary_table': 'customer',
-        'key_column': 'custkey',
-        'tables': ['customer', 'supplier', 'nation', 'region', 'part', 'partsupp', 'orders', 'lineitem'],
-        'domain_file': 'tpchdb_domain_map.json',
+        'description': 'TPC-H Benchmark Database',
+        'primary_table': 'lineitem',
+        'key_column': 'l_orderkey',
+        'tables': ['region', 'nation', 'supplier', 'customer', 'part', 'partsupp', 'orders', 'lineitem'],
+        'dc_config_module': None,  # Add when available
         'dc_file': 'tpch_dcs.py',
         'dc_raw_file': 'tpch_dcs',
-        'dc_config_module': None
+        'domain_file': 'tpchdb_domain_map.json',
     },
 }
 
@@ -134,10 +152,10 @@ DATASETS = {
 # ALGORITHM PARAMETERS AND DEFAULTS
 # ============================================================================
 
-# Default target EID
+# Default target EID (from your existing config)
 DEFAULT_TARGET_EID = 2
 
-# Algorithm defaults
+# Algorithm defaults found in various files
 ALGORITHM_DEFAULTS = {
     'default_table': 'adult_data',
     'default_target_column': 'education',
@@ -148,6 +166,21 @@ ALGORITHM_DEFAULTS = {
     'max_iterations': 100,
     'timeout_seconds': 300,
 }
+
+# ============================================================================
+# BACKWARD COMPATIBILITY (Your existing variables)
+# ============================================================================
+
+# Keep your existing variables for backward compatibility
+DATABASES = {dataset['name']: dataset['database_name'] for dataset in DATASETS.values()}
+
+DC_CONFIGS = {
+    name: dataset['dc_config_module'] 
+    for name, dataset in DATASETS.items() 
+    if dataset['dc_config_module']
+}
+
+OUTPUT_DIR = str(PATHS['output'])  # Your existing OUTPUT_DIR as string
 
 # ============================================================================
 # CORE HELPER FUNCTIONS
@@ -184,10 +217,6 @@ def get_all_tables(dataset_name):
     """Get all tables for a dataset."""
     return get_dataset_info(dataset_name)['tables']
 
-def list_available_datasets():
-    """Get list of available dataset names."""
-    return list(DATASETS.keys())
-
 # ============================================================================
 # FILE PATH FUNCTIONS (Domains, DCs, etc.)
 # ============================================================================
@@ -223,61 +252,76 @@ def get_data_generation_path(dataset_name):
     return PATHS['data_generation']
 
 # ============================================================================
-# BACKWARD COMPATIBILITY (Your existing variables)
-# ============================================================================
-
-# Keep your existing variables for backward compatibility
-DATABASES = {dataset['name']: dataset['database_name'] for dataset in DATASETS.values()}
-
-DC_CONFIGS = {
-    name: dataset['dc_config_module'] 
-    for name, dataset in DATASETS.items() 
-    if dataset['dc_config_module']
-}
-
-OUTPUT_DIR = str(PATHS['output'])  # Your existing OUTPUT_DIR as string
-
-# ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
+
+def list_available_datasets():
+    """Get list of available dataset names."""
+    return list(DATASETS.keys())
 
 def validate_dataset(dataset_name):
     """Validate that a dataset configuration is complete and files exist."""
     if dataset_name not in DATASETS:
-        return False, f"Dataset {dataset_name} not found"
+        return False, f"Dataset '{dataset_name}' not found in configuration"
     
     dataset = DATASETS[dataset_name]
+    issues = []
     
-    # Check required fields
-    required_fields = ['name', 'database_name', 'primary_table', 'key_column']
-    for field in required_fields:
-        if field not in dataset:
-            return False, f"Dataset {dataset_name} missing required field: {field}"
+    # Check if DC config file exists (if specified)
+    if dataset.get('dc_file'):
+        dc_path = get_dc_config_path(dataset_name)
+        if not dc_path.exists():
+            issues.append(f"DC config file not found: {dc_path}")
     
-    return True, "Dataset configuration valid"
+    # Check if raw DC file exists (if specified)
+    if dataset.get('dc_raw_file'):
+        dc_raw_path = get_dc_raw_path(dataset_name)
+        if not dc_raw_path.exists():
+            issues.append(f"Raw DC file not found: {dc_raw_path}")
+    
+    if issues:
+        return False, "; ".join(issues)
+    
+    return True, "Dataset configuration is valid"
 
 # ============================================================================
-# EXPORT ALL FUNCTIONS
+# TESTING AND VALIDATION
 # ============================================================================
 
-__all__ = [
-    # Core configuration
-    'DATASETS', 'DB_CONFIG', 'PATHS', 'ALGORITHM_DEFAULTS',
+if __name__ == "__main__":
+    print("Enhanced RTF Configuration")
+    print("=" * 60)
     
-    # Main functions
-    'get_database_config', 'get_dataset_info', 'list_available_datasets',
-    'get_primary_table', 'get_key_column', 'get_all_tables',
+    # Show available datasets
+    datasets = list_available_datasets()
+    print(f"\nAvailable datasets ({len(datasets)}): {datasets}")
     
-    # File path functions
-    'get_domain_file_path', 'get_dc_config_path', 'get_dc_raw_path',
-    'get_output_file', 'get_log_file', 'get_data_generation_path',
+    # Test core functions for each dataset
+    print(f"\nDataset Information:")
+    for dataset in datasets[:3]:  # Test first 3
+        try:
+            db_config = get_database_config(dataset)
+            dataset_info = get_dataset_info(dataset)
+            
+            print(f"\n{dataset.upper()}:")
+            print(f"  Database: {db_config['database']}")
+            print(f"  Primary Table: {get_primary_table(dataset)}")
+            print(f"  Key Column: {get_key_column(dataset)}")
+            print(f"  All Tables: {get_all_tables(dataset)}")
+            print(f"  Domain File: {get_domain_file_path(dataset).name}")
+            print(f"  DC File: {get_dc_config_path(dataset).name}")
+            
+            # Validate dataset
+            is_valid, message = validate_dataset(dataset)
+            print(f"  Valid: {is_valid} ({message})")
+            
+        except Exception as e:
+            print(f"  {dataset} -> ERROR: {e}")
     
-    # Backward compatibility
-    'DATABASES', 'DC_CONFIGS', 'OUTPUT_DIR',
+    # Test backward compatibility
+    print(f"\nBackward Compatibility:")
+    print(f"  DATABASES: {DATABASES}")
+    print(f"  OUTPUT_DIR: {OUTPUT_DIR}")
+    print(f"  DEFAULT_TARGET_EID: {DEFAULT_TARGET_EID}")
     
-    # Utilities
-    'validate_dataset', 'DEFAULT_TARGET_EID'
-]
-
-# Debug print
-print("✓ Standalone config.py loaded successfully")
+    print(f"\nConfiguration ready for gradual migration!")
