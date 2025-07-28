@@ -67,7 +67,7 @@ class RTFCorrectedAlgorithm:
             
             # CHECK: Privacy threshold met?
             if self._check_privacy_threshold():
-                print("✓ Privacy threshold achieved - stopping")
+                print("[OK] Privacy threshold achieved - stopping")
                 break
             
             # LEVEL 1: Ordered Analysis Phase
@@ -337,7 +337,7 @@ class RTFCorrectedAlgorithm:
         privacy_ratio = self.current_domain_size / self.original_domain_size
         met = privacy_ratio >= self.threshold
         
-        print(f"Privacy check: {self.current_domain_size}/{self.original_domain_size} = {privacy_ratio:.3f} (threshold: {self.threshold}) -> {'✓' if met else '✗'}")
+        print(f"Privacy check: {self.current_domain_size}/{self.original_domain_size} = {privacy_ratio:.3f} (threshold: {self.threshold}) -> {'[OK]' if met else '[FAIL]'}")
         
         return met
     
@@ -394,25 +394,25 @@ def test_corrected_algorithm():
     
     # Display results
     print(f"\n=== FINAL RESULTS ===")
-    print(f"🎯 Target: {target_info['attribute']} = 'Bachelors'")
-    print(f"📊 Algorithm Performance:")
+    print(f"[TARGET] Target: {target_info['attribute']} = 'Bachelors'")
+    print(f"[DATA] Algorithm Performance:")
     print(f"   - Total iterations: {results['iterations']}")
     print(f"   - Constraint cells deleted: {results['constraint_cells_deleted']}")
     print(f"   - Total cells deleted: {len(results['deletion_set'])}")
     
-    print(f"\n🔒 Privacy Analysis:")
+    print(f"\n? Privacy Analysis:")
     print(f"   - Started with domain: {results['original_domain_size']} values")
     print(f"   - Achieved domain: {results['final_domain_size']} values")
     print(f"   - Privacy ratio: {results['privacy_ratio']:.3f}")
     print(f"   - Threshold: {algorithm.threshold}")
-    print(f"   - Privacy achieved: {'✅ YES' if results['threshold_met'] else '❌ NO'}")
+    print(f"   - Privacy achieved: {'[SUCCESS] YES' if results['threshold_met'] else '[ERROR] NO'}")
     
-    print(f"\n📋 Deletion Set:")
+    print(f"\n[LIST] Deletion Set:")
     for i, cell in enumerate(results['deletion_set'], 1):
-        cell_type = "🎯 TARGET" if cell == algorithm.target_cell else "🔗 AUXILIARY"
+        cell_type = "[TARGET] TARGET" if cell == algorithm.target_cell else "? AUXILIARY"
         print(f"   {i}. {cell.attribute.col} = '{cell.value}' {cell_type}")
     
-    print(f"\n📈 Research Insights:")
+    print(f"\n[GROWTH] Research Insights:")
     privacy_improvement = (results['privacy_ratio'] - (algorithm.current_domain_size / algorithm.original_domain_size)) * 100
     data_cost = results['iterations']
     print(f"   - Privacy improvement: {privacy_improvement:.1f}%")

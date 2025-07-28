@@ -35,7 +35,7 @@ class Cell:
 
     def __repr__(self):
         # Makes debugging easy:
-        #   print(cell) → Person.age[123]=>35
+        #   print(cell) -> Person.age[123]=>35
         return f"{self.attribute}[{self.key}]=>{self.value}"
 
     def __eq__(self, other):

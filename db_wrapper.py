@@ -236,10 +236,10 @@ def test_dataset_connection(dataset_name: str) -> bool:
     try:
         with DatabaseWrapper(dataset_name) as db:
             count = db.get_row_count()
-            print(f"✓ {dataset_name}: Connected successfully, {count} rows in primary table")
+            print(f"[OK] {dataset_name}: Connected successfully, {count} rows in primary table")
             return True
     except Exception as e:
-        print(f"✗ {dataset_name}: Connection failed - {e}")
+        print(f"[FAIL] {dataset_name}: Connection failed - {e}")
         return False
 
 # ============================================================================
@@ -328,7 +328,7 @@ if __name__ == "__main__":
         # Old way still works
         db_config = create_legacy_database_config(database='adult')
         db_wrapper = DatabaseWrapper(db_config)
-        print(f"   ✓ Legacy DatabaseConfig creation works")
+        print(f"   [OK] Legacy DatabaseConfig creation works")
         db_wrapper.close()
     except Exception as e:
         print(f"   Error: {e}")

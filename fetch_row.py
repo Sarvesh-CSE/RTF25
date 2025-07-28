@@ -60,10 +60,10 @@ class RTFDatabaseManager:
 if __name__ == "__main__":
     # Test repository-level connection
     with RTFDatabaseManager('adult') as db: 
-        # ↑ __enter__ called: connection opens, cursor created
+        # ? __enter__ called: connection opens, cursor created
         row1 = db.fetch_row(2)
         row2 = db.fetch_row(3)
         print(f"Row 2 education: {row1.get('education', 'N/A')}")
         print(f"Row 3 education: {row2.get('education', 'N/A')}")
-        # ↑ LAST LINE OF WITH BLOCK COMPLETES
-    # ↑ __exit__ called: connection closes, cursor destroyed
+        # ? LAST LINE OF WITH BLOCK COMPLETES
+    # ? __exit__ called: connection closes, cursor destroyed

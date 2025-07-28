@@ -280,4 +280,4 @@ __all__ = [
 ]
 
 # Debug print
-print("✓ Standalone config.py loaded successfully")
+print("[OK] Standalone config.py loaded successfully")

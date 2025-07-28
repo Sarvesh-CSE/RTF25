@@ -62,7 +62,7 @@ DATASETS = {
         'dc_raw_file': 'topAdultDCs',
         'data_generation_dir': 'adult',
         'domain_file': 'adult_domain_map.json',
-        'test_attribute': 'education',  # ← ADD THIS LINE
+        'test_attribute': 'education',  # <- ADD THIS LINE
     },
     
     'tax': {
@@ -76,7 +76,7 @@ DATASETS = {
         'dc_file': 'topTaxDCs_parsed.py',
         'dc_raw_file': 'topTaxDCs',
         'domain_file': 'tax_domain_map.json',
-        'test_attribute': 'salary',  # ← ADD THIS LINE
+        'test_attribute': 'salary',  # <- ADD THIS LINE
     },
     
     'hospital': {
@@ -90,7 +90,7 @@ DATASETS = {
         'dc_file': 'topHospitalDCs_parsed.py',
         'dc_raw_file': 'topHospitalDCs',
         'domain_file': 'hospital_domain_map.json',
-        'test_attribute': 'City',  # ← ADD THIS LINE
+        'test_attribute': 'City',  # <- ADD THIS LINE
     },
     
     'ncvoter': {

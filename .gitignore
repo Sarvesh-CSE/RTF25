@@ -177,3 +177,17 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# RTF25 Development artifacts
+step*.py
+*_test_*.py
+debug_*.py
+backup_*/
+safety_backup_*/
+final_backup_*/
+
+# RTF specific
+output/
+logs/
+*.csv.bak
+data/private/

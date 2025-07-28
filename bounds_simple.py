@@ -32,13 +32,13 @@ def get_restriction(cell: Cell) -> float:
                         min_range = min(min_range, abs(pair[1] - pair[0]))
                 
                 if min_range != float('inf'):
-                    print(f"✓ DC bounds found for {cell.attribute.col}: {min_range}")
+                    print(f"[OK] DC bounds found for {cell.attribute.col}: {min_range}")
                     return min_range
     except Exception as e:
-        print(f"⚠ DC bounds failed for {cell.attribute.col}: {e}")
+        print(f"? DC bounds failed for {cell.attribute.col}: {e}")
     
     # Fallback to default restrictions
-    print(f"→ Using default restriction for {cell.attribute.col}")
+    print(f"-> Using default restriction for {cell.attribute.col}")
     return _get_default_restriction(cell)
 
 

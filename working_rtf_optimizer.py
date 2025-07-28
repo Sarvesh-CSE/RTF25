@@ -55,20 +55,20 @@ class WorkingRTFOptimizer:
                 row_data[self.target_cell_info['attribute']]
             )
             
-            print(f"✓ Target cell created: {self.target_cell.attribute.col} = {self.target_cell.value}")
+            print(f"[OK] Target cell created: {self.target_cell.attribute.col} = {self.target_cell.value}")
             
             # Test domain computation
             domain_info = self.domain_computer.get_domain(self.table_name, self.target_cell.attribute.col)
             if domain_info and 'values' in domain_info:
                 self.original_domain_size = len(domain_info['values'])
-                print(f"✓ Domain computed: {self.original_domain_size} values")
+                print(f"[OK] Domain computed: {self.original_domain_size} values")
             else:
                 self.original_domain_size = 16  # Fallback
-                print(f"✓ Using fallback domain size: {self.original_domain_size}")
+                print(f"[OK] Using fallback domain size: {self.original_domain_size}")
             
             # Test graph construction
             hyperedge_graph = self.graph_builder.construct_full_graph()
-            print(f"✓ Graph constructed: {len(hyperedge_graph)} nodes")
+            print(f"[OK] Graph constructed: {len(hyperedge_graph)} nodes")
             
             # Create mock results
             results = {
@@ -83,12 +83,12 @@ class WorkingRTFOptimizer:
             
             print(f"\n=== Test Results ===")
             print(f"Privacy ratio: {results['privacy_ratio']:.3f}")
-            print(f"Threshold met: {'✅' if results['threshold_met'] else '❌'}")
+            print(f"Threshold met: {'[SUCCESS]' if results['threshold_met'] else '[ERROR]'}")
             
             return results
             
         except Exception as e:
-            print(f"✗ Test failed: {e}")
+            print(f"[FAIL] Test failed: {e}")
             raise
     
     def _get_sample_row_data(self):
@@ -116,7 +116,7 @@ def test_working_optimizer():
     
     results = optimizer.run_basic_test()
     
-    print(f"\n🎉 Working optimizer test completed!")
+    print(f"\n[SUCCESS] Working optimizer test completed!")
     return results
 
 if __name__ == '__main__':

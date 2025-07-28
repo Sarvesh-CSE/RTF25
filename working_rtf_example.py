@@ -22,9 +22,9 @@ def test_rtf_components():
     try:
         import config
         datasets = config.list_available_datasets()
-        print(f"  ✓ Config working: {datasets}")
+        print(f"  [OK] Config working: {datasets}")
     except Exception as e:
-        print(f"  ✗ Config failed: {e}")
+        print(f"  [FAIL] Config failed: {e}")
         return False
     
     # Test 2: Cell system
@@ -34,9 +34,9 @@ def test_rtf_components():
         
         attr = Attribute('adult', 'education')
         cell = Cell(attr, 2, 'Bachelors')
-        print(f"  ✓ Cell system working: {cell.attribute.col} = {cell.value}")
+        print(f"  [OK] Cell system working: {cell.attribute.col} = {cell.value}")
     except Exception as e:
-        print(f"  ✗ Cell system failed: {e}")
+        print(f"  [FAIL] Cell system failed: {e}")
         return False
     
     # Test 3: Domain computation
@@ -49,12 +49,12 @@ def test_rtf_components():
         
         if domain_info and 'values' in domain_info:
             domain_size = len(domain_info['values'])
-            print(f"  ✓ Domain computation working: {domain_size} education values")
+            print(f"  [OK] Domain computation working: {domain_size} education values")
         else:
-            print("  ✓ Domain computation initialized (data may not be available)")
+            print("  [OK] Domain computation initialized (data may not be available)")
             
     except Exception as e:
-        print(f"  ✗ Domain computation failed: {e}")
+        print(f"  [FAIL] Domain computation failed: {e}")
         return False
     
     # Test 4: Graph construction  
@@ -65,21 +65,21 @@ def test_rtf_components():
         target_info = {'key': 2, 'attribute': 'education'}
         builder = IncrementalGraphBuilder(target_info, 'adult')
         
-        print(f"  ✓ Graph construction working for target: {target_info}")
+        print(f"  [OK] Graph construction working for target: {target_info}")
         
         # Try to build graph
         try:
             graph = builder.construct_full_graph()
-            print(f"  ✓ Graph built successfully: {len(graph)} nodes")
+            print(f"  [OK] Graph built successfully: {len(graph)} nodes")
         except Exception as graph_e:
             print(f"  - Graph construction initialized but build failed: {graph_e}")
             print("  - This may be due to missing database connection")
             
     except Exception as e:
-        print(f"  ✗ Graph construction failed: {e}")
+        print(f"  [FAIL] Graph construction failed: {e}")
         return False
     
-    print("\n🎉 All RTF components are working!")
+    print("\n[SUCCESS] All RTF components are working!")
     print("Ready to create full examples and documentation.")
     return True
 
@@ -108,8 +108,8 @@ def create_simple_rtf_demo():
             print(f"Sample values: {original_domain[:5]}...")
             
             # Simulate privacy protection
-            print("\n🔒 Privacy Protection Simulation:")
-            print("  1. Target cell deleted → value = NULL")
+            print("\n? Privacy Protection Simulation:")
+            print("  1. Target cell deleted -> value = NULL")
             print("  2. Constraints from related cells restrict inferred domain")
             print("  3. Algorithm deletes additional cells to expand domain")
             print("  4. Privacy threshold achieved when domain is large enough")
@@ -120,11 +120,11 @@ def create_simple_rtf_demo():
             print(f"  - Original domain: {len(original_domain)} values")
             print(f"  - Final domain: 13 values (after constraint removal)")
             print(f"  - Privacy ratio: {mock_privacy_ratio:.3f}")
-            print(f"  - Privacy protection: {'✅ Achieved' if mock_privacy_ratio >= 0.8 else '❌ Not achieved'}")
+            print(f"  - Privacy protection: {'[SUCCESS] Achieved' if mock_privacy_ratio >= 0.8 else '[ERROR] Not achieved'}")
             
         else:
             print("Domain data not available - using simulation")
-            print("\n🔒 RTF Algorithm Demonstration Complete")
+            print("\n? RTF Algorithm Demonstration Complete")
             
     except Exception as e:
         print(f"Demo failed: {e}")
@@ -135,4 +135,4 @@ if __name__ == '__main__':
         # Run demo
         create_simple_rtf_demo()
     else:
-        print("\n❌ Component testing failed - check the errors above")
+        print("\n[ERROR] Component testing failed - check the errors above")

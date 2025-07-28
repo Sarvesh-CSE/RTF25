@@ -27,13 +27,13 @@ def test_rtf_success():
         adult_info = config.get_dataset_info('adult') 
         domain_path = config.get_domain_file_path('adult')
         
-        print(f"  ✓ {len(datasets)} datasets configured")
-        print(f"  ✓ Adult dataset: {adult_info['primary_table']}")
-        print(f"  ✓ Domain file path: {domain_path.name}")
+        print(f"  [OK] {len(datasets)} datasets configured")
+        print(f"  [OK] Adult dataset: {adult_info['primary_table']}")
+        print(f"  [OK] Domain file path: {domain_path.name}")
         success_criteria['config_system'] = True
         
     except Exception as e:
-        print(f"  ✗ Config failed: {e}")
+        print(f"  [FAIL] Config failed: {e}")
     
     # Test 2: Cell system (test for circular imports)
     print("\n2. Cell System Test...")
@@ -43,15 +43,15 @@ def test_rtf_success():
         attr = Attribute('adult', 'education')
         cell = Cell(attr, 2, 'Bachelors')
         
-        print(f"  ✓ Cell created: {cell.attribute.col} = '{cell.value}'")
-        print("  ✓ No circular import errors")
+        print(f"  [OK] Cell created: {cell.attribute.col} = '{cell.value}'")
+        print("  [OK] No circular import errors")
         success_criteria['cell_system'] = True
         success_criteria['no_circular_imports'] = True
         
     except Exception as e:
-        print(f"  ✗ Cell failed: {e}")
+        print(f"  [FAIL] Cell failed: {e}")
         if 'circular import' in str(e).lower():
-            print("  ⚠️ Circular import detected")
+            print("  [WARNING] Circular import detected")
     
     # Test 3: Domain computation
     print("\n3. Domain Computation Test...")
@@ -63,14 +63,14 @@ def test_rtf_success():
         domain_info = domain_comp.get_domain('adult_data', 'education')
         
         if domain_info and 'values' in domain_info:
-            print(f"  ✓ Domain retrieved: {len(domain_info['values'])} values")
+            print(f"  [OK] Domain retrieved: {len(domain_info['values'])} values")
             success_criteria['domain_computation'] = True
         else:
-            print("  ✓ Domain computation initialized (data not available)")
+            print("  [OK] Domain computation initialized (data not available)")
             success_criteria['domain_computation'] = True
             
     except Exception as e:
-        print(f"  ✗ Domain computation failed: {e}")
+        print(f"  [FAIL] Domain computation failed: {e}")
     
     # Test 4: Graph construction
     print("\n4. Graph Construction Test...")
@@ -81,11 +81,11 @@ def test_rtf_success():
         target_info = {'key': 2, 'attribute': 'education'}
         builder = IncrementalGraphBuilder(target_info, 'adult')
         
-        print("  ✓ Graph builder initialized")
+        print("  [OK] Graph builder initialized")
         success_criteria['graph_construction'] = True
         
     except Exception as e:
-        print(f"  ✗ Graph construction failed: {e}")
+        print(f"  [FAIL] Graph construction failed: {e}")
     
     # Results analysis
     print("\n=== SUCCESS ANALYSIS ===")
@@ -97,17 +97,17 @@ def test_rtf_success():
     print(f"Success Rate: {passed_criteria}/{total_criteria} ({success_rate:.1%})")
     
     for criterion, passed in success_criteria.items():
-        status = "✅" if passed else "❌"
+        status = "[SUCCESS]" if passed else "[ERROR]"
         print(f"  {status} {criterion.replace('_', ' ').title()}")
     
     # Overall assessment
     if success_rate >= 0.8:
-        print(f"\n🎉 RTF MULTI-LEVEL OPTIMIZER SUCCESS!")
-        print(f"   ✅ {success_rate:.0%} of components working")
-        print(f"   ✅ Ready for research and publication")
-        print(f"   ✅ Algorithm implementation complete")
+        print(f"\n[SUCCESS] RTF MULTI-LEVEL OPTIMIZER SUCCESS!")
+        print(f"   [SUCCESS] {success_rate:.0%} of components working")
+        print(f"   [SUCCESS] Ready for research and publication")
+        print(f"   [SUCCESS] Algorithm implementation complete")
         
-        print(f"\n📚 Next Steps:")
+        print(f"\n? Next Steps:")
         print(f"   1. Create final documentation")
         print(f"   2. Prepare research examples") 
         print(f"   3. Write academic paper")
@@ -116,7 +116,7 @@ def test_rtf_success():
         return True
         
     elif success_rate >= 0.6:
-        print(f"\n⚠️ RTF OPTIMIZER PARTIALLY WORKING")
+        print(f"\n[WARNING] RTF OPTIMIZER PARTIALLY WORKING")
         print(f"   - {success_rate:.0%} of components functional")
         print(f"   - Can proceed with limited functionality")
         print(f"   - Address failing components for full functionality")
@@ -124,7 +124,7 @@ def test_rtf_success():
         return False
         
     else:
-        print(f"\n❌ RTF OPTIMIZER NEEDS MORE WORK")
+        print(f"\n[ERROR] RTF OPTIMIZER NEEDS MORE WORK")
         print(f"   - Only {success_rate:.0%} of components working")
         print(f"   - Address the failing components above")
         
@@ -134,6 +134,6 @@ if __name__ == '__main__':
     success = test_rtf_success()
     
     if success:
-        print(f"\n🚀 READY FOR FINAL DOCUMENTATION AND EXAMPLES!")
+        print(f"\n[LAUNCH] READY FOR FINAL DOCUMENTATION AND EXAMPLES!")
     else:
-        print(f"\n🔧 MORE DEBUGGING NEEDED")
+        print(f"\n[TOOLS] MORE DEBUGGING NEEDED")
