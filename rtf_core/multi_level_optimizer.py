@@ -42,10 +42,39 @@ class RTFCorrectedAlgorithm:
         self.active_constraints = []
         self.constraint_cells = set()
         
-        print(f"RTF Corrected Algorithm initialized")
+        print(f"RTF Algorithm initialized")
         print(f"Target: {target_cell_info}")
         print(f"Threshold: {threshold_alpha}")
+
+    def _initialize_algorithm(self):
+        """Initialize with proper constraint-based domain restriction"""
+        print("--- Initialization ---")
+        
+        # Create target cell
+        row_data = self._get_sample_row_data()
+        self.target_cell = Cell(
+            Attribute(self.dataset, self.target_cell_info['attribute']),
+            self.target_cell_info['key'],
+            row_data[self.target_cell_info['attribute']]
+        )
+        
+        # Initialize deletion set with target cell
+        self.current_deletion_set = {self.target_cell}
+        
+        # Get original domain size
+        self.original_domain_size = self._get_original_domain_size()
+        
+        # CRITICAL: Initialize with constraint-restricted domain
+        # This models the scenario where target is deleted but constraints still apply
+        self._initialize_constraint_cells()
+        self.current_domain_size = self._compute_initial_restricted_domain()
+        
+        print(f"Target cell: {self.target_cell.attribute.col} = '{self.target_cell.value}'")
+        print(f"Original domain size: {self.original_domain_size}")
+        print(f"Initial restricted domain size (with only target cell deleted): {self.current_domain_size}")
+        print(f"Initial domain restriction ratio: {self.current_domain_size / self.original_domain_size:.3f}")
     
+
     def run_complete_algorithm(self):
         """
         Main method implementing your complete multi-level analysis algorithm
@@ -124,34 +153,7 @@ class RTFCorrectedAlgorithm:
         
         return self._generate_results()
     
-    def _initialize_algorithm(self):
-        """Initialize with proper constraint-based domain restriction"""
-        print("--- Initialization ---")
-        
-        # Create target cell
-        row_data = self._get_sample_row_data()
-        self.target_cell = Cell(
-            Attribute(self.dataset, self.target_cell_info['attribute']),
-            self.target_cell_info['key'],
-            row_data[self.target_cell_info['attribute']]
-        )
-        
-        # Initialize deletion set with target cell
-        self.current_deletion_set = {self.target_cell}
-        
-        # Get original domain size
-        self.original_domain_size = self._get_original_domain_size()
-        
-        # CRITICAL: Initialize with constraint-restricted domain
-        # This models the scenario where target is deleted but constraints still apply
-        self._initialize_constraint_cells()
-        self.current_domain_size = self._compute_initial_restricted_domain()
-        
-        print(f"Target cell: {self.target_cell.attribute.col} = '{self.target_cell.value}'")
-        print(f"Original domain size: {self.original_domain_size}")
-        print(f"Initial restricted domain size: {self.current_domain_size}")
-        print(f"Initial privacy ratio: {self.current_domain_size / self.original_domain_size:.3f}")
-    
+
     def _initialize_constraint_cells(self):
         """Initialize cells that have constraints with the target"""
         print("Discovering constraint cells...")
