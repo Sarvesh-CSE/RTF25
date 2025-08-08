@@ -15,6 +15,7 @@ sys.path.append(os.path.join(project_root, 'IDcomputation'))
 from RTFGraphConstruction.ID_graph_construction import IncrementalGraphBuilder
 from IDcomputation.IGC_e_get_bound_new import AttributeDomainComputation, DomianInferFromDC
 from cell import Cell, Attribute
+from fetch_row import RTFDatabaseManager
 
 class RTFCorrectedAlgorithm:
     """
@@ -207,23 +208,42 @@ class RTFCorrectedAlgorithm:
         
         return restricted_size
     
-    def _get_constraint_restriction_factor(self, target_attr, constraint_attr):
-        """
-        How much does an active constraint restrict the target domain?
-        Higher values mean stronger restriction (smaller domain)
-        """
-        restriction_map = {
-            ('education', 'age'): 0.3,        # Age strongly constrains education
-            ('education', 'workclass'): 0.25,  # Workclass constrains education  
-            ('education', 'occupation'): 0.4,  # Occupation most strongly constrains education
-            ('education', 'marital-status'): 0.15,
-            ('education', 'race'): 0.1,
-        }
+
+    # def _get_constraint_restriction_factor(self, target_attr, constraint_attr):
+    #     """
+    #     Automatically compute how much constraint_attr restricts target_attr
+    #     based on domain shrinking.
+    #     """
+    #     full_domain = self._get_domain_size(target_attr)
+    #     grouped_domains = self._get_avg_conditional_domain(target_attr, constraint_attr)
         
-        key = (target_attr, constraint_attr)
-        factor = restriction_map.get(key, 0.2)  # Default moderate restriction
+    #     if full_domain == 0:
+    #         return 0.0
         
-        return factor
+    #     restriction_factor = 1.0 - (grouped_domains / full_domain)
+    #     return round(restriction_factor, 3)
+    
+    # def _get_domain_size(self, attr):
+    #     domain_info = self.domain_computer.get_domain(self.table_name, attr)
+    #     return len(domain_info['values']) if domain_info and 'values' in domain_info else 1
+
+    # def _get_avg_conditional_domain(self, target_attr, cond_attr):
+    #     query = f"""
+    #         SELECT {cond_attr}, COUNT(DISTINCT {target_attr}) as dsize
+    #         FROM {self.table_name}
+    #         GROUP BY {cond_attr}
+    #     """
+    #     try:
+    #         conn = self.domain_computer.connection
+    #         cursor = conn.cursor(dictionary=True)
+    #         cursor.execute(query)
+    #         rows = cursor.fetchall()
+    #         sizes = [row['dsize'] for row in rows]
+    #         return sum(sizes) / len(sizes) if sizes else 1
+    #     except:
+    #         return 1
+
+
     
     def _has_active_constraints_on_target(self):
         """Check if there are still active constraints on target cell"""
@@ -355,20 +375,14 @@ class RTFCorrectedAlgorithm:
         self.graph_builder.check_threshold_stub = real_threshold_check
     
     def _get_sample_row_data(self):
+        with RTFDatabaseManager(self.dataset) as db:
+            """Fetch a sample row data for target cell"""
+            # This is a stub - replace with actual database fetch logic
+            # For now, return a sample row data
+            row = db.fetch_row(self.target_cell_info['key'])
+            # print(f"Fetched sample row data for key {self.target_cell_info['key']}: {row}")
         """Sample data - replace with your actual data access"""
-        return {
-            'age': 39,
-            'workclass': 'State-gov', 
-            'education': 'Bachelors',
-            'marital-status': 'Never-married',
-            'occupation': 'Adm-clerical',
-            'relationship': 'Not-in-family',
-            'race': 'White',
-            'sex': 'Male',
-            'hours-per-week': 40,
-            'native-country': 'United-States',
-            'income': '<=50K'
-        }
+        return row
     
     def _generate_results(self):
         """Generate final results"""
