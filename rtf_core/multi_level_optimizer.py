@@ -14,7 +14,7 @@ from rtf_core.initialization_phase import InitializationManager # Corrected impo
 from rtf_core.analysis_phase import OrderedAnalysisPhase
 from rtf_core.decision_phase import DecisionPhase
 
-class RTFCorrectedAlgorithm:
+class RTFMultiLevelAlgorithm:
     """
     Corrected RTF algorithm that orchestrates modular components.
     """
@@ -31,7 +31,7 @@ class RTFCorrectedAlgorithm:
         """
         Main method implementing your complete multi-level analysis algorithm.
         """
-        print(f"\n=== RTF Multi-Level Analysis Algorithm (Corrected) ===")
+        print(f"\n=== RTF Multi-Level Analysis Algorithm (multi_level_optimizer) ===")
         
         # Initialization Phase
         self.init_manager.initialize()
@@ -60,11 +60,11 @@ class RTFCorrectedAlgorithm:
         return self.init_manager.get_results()
 
 
-def test_corrected_algorithm():
+def test_RTF_algorithm():
     """Test the corrected algorithm."""
-    print("=== Testing CORRECTED RTF Algorithm ===")
+    print("=== Testing modular RTF Algorithm (multi_level_optimizer) ===")
     target_info = {'key': 2, 'attribute': 'education'}
-    algorithm = RTFCorrectedAlgorithm(target_info, 'adult', 0.8)
+    algorithm = RTFMultiLevelAlgorithm(target_info, 'adult', 0.8)
 
     results = algorithm.run_complete_algorithm()
 
@@ -98,4 +98,4 @@ def test_corrected_algorithm():
             print(f"   - Efficiency: {privacy_improvement/data_cost:.2f}% improvement per deletion")
 
 if __name__ == '__main__':
-    test_corrected_algorithm()
+    test_RTF_algorithm()
