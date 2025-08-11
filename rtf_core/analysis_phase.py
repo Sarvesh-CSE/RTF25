@@ -1,7 +1,7 @@
 # rtf_core/analysis_phase.py
 
 from typing import Dict, Any, List
-from .initialization import InitializationManager
+from .initialization_phase import InitializationManager # Corrected import
 
 class OrderedAnalysisPhase:
     """

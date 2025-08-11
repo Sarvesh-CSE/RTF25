@@ -10,7 +10,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from cell import Cell, Attribute
-from rtf_core.initialization import InitializationManager
+from rtf_core.initialization_phase import InitializationManager # Corrected import statement
 from rtf_core.analysis_phase import OrderedAnalysisPhase
 from rtf_core.decision_phase import DecisionPhase
 

@@ -1,4 +1,4 @@
-# rtf_core/initialization.py
+# rtf_core/initialization_phase.py
 
 import sys
 import os
@@ -69,7 +69,7 @@ class InitializationManager:
 
         # Initialize deletion set with target cell
         self.current_deletion_set = {self.target_cell}
-        self.original_domain_size = self._get_original_domain_size()
+        self.original_domain_size = self.get_original_domain_size() # Corrected line
         self._discover_constraint_cells(row_data)
 
         # Compute initial domain size with only target cell deleted
