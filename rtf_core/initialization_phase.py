@@ -165,10 +165,57 @@ class InitializationManager:
         domain_size = int(self.original_domain_size * (1 - avg_restriction))
         return max(1, domain_size)
         
-    def _get_constraint_restriction_factor(self, target_attr, constraint_attr):
-        """Compute how much constraint_attr restricts target_attr based on domain shrinking."""
-        # (Implementation details for this method would go here, or in a separate utility)
-        return 0.4 # A stub value for demonstration
+    def _get_constraint_restriction_factor(self, target_attr: str, constraint_attr: str) -> float:
+        """
+        Computes how much a single constraint restricts the target attribute's domain.
+        This function now uses the real domain inference logic from your project.
+        """
+        # Step 1: Get the original domain size for the target attribute
+        original_domain_size = self.get_original_domain_size()
+        if original_domain_size == 0:
+            return 0.0
+
+        # Step 2: Find the specific denial constraint that links target and constraint attributes
+        target_dc_list = []
+        for dc in self.denial_constraints:
+            attrs_in_dc = set(pred.split('.')[-1] for pred in [p[0] for p in dc] + [p[2] for p in dc if isinstance(p[2], str)])
+            if target_attr in attrs_in_dc and constraint_attr in attrs_in_dc:
+                target_dc_list.append(dc)
+
+        # If no constraint is found, there is no restriction
+        if not target_dc_list:
+            return 0.0
+
+        # Step 3: Use the domain inferrer to calculate the restricted domain size
+        try:
+            # We need a sample row to act as the "known_value" for the constraint
+            row_data = self._get_sample_row_data()
+            target_tuple = row_data
+
+            bounds_list = self.domain_inferrer.get_bound_from_DC(
+                target_dc_list=target_dc_list,
+                target_tuple=target_tuple,
+                table_name=self.table_name,
+                target_column=target_attr
+            )
+            
+            # Use intersection logic from IGC_e_get_bound_new to get final bounds
+            intersected_bounds = self.domain_inferrer.intersect_bounds(bounds_list)
+            
+            if intersected_bounds and intersected_bounds[0] is not None and intersected_bounds[1] is not None:
+                restricted_domain_size = intersected_bounds[1] - intersected_bounds[0] + 1
+            else:
+                # If bounds are None, assume no restriction
+                restricted_domain_size = original_domain_size
+
+        except Exception as e:
+            # Fallback in case of errors
+            print(f"Warning: Could not compute restriction factor due to error: {e}")
+            restricted_domain_size = original_domain_size
+
+        # Step 4: Calculate the restriction factor
+        restriction_factor = 1.0 - (restricted_domain_size / original_domain_size)
+        return max(0.0, restriction_factor)
 
     def get_results(self) -> Dict[str, Any]:
         """Generate final results summary."""
