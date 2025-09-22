@@ -3,7 +3,10 @@ from typing import Any, List, Tuple, Dict, Set
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path for import resolution
 from cell import Attribute, Cell, Hyperedge
-from InferenceGraph.bulid_hyperedges import build_hyperedge_map, fetch_row
+from InferenceGraph.bulid_hyperedges import build_hyperedge_map
+from fetch_row import RTFDatabaseManager
+
+
 
 # ----------------------------------------------------------------------------- 
 class GraphNode:
@@ -72,7 +75,8 @@ def build_hypergraph_tree(
 
 def main():
     key = 2
-    row = fetch_row(key) # fetch_row(key) grabs the target tuple from your database as a Python dict.
+    with RTFDatabaseManager('adult') as fr:
+        row = fr.fetch_row(key) # fetch_row(key) grabs the target tuple from your database as a Python dict.
     root_attr = 'education'
     root = build_hypergraph_tree(row, key, root_attr, build_hyperedge_map(row, key, root_attr))
 

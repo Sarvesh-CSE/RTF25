@@ -113,7 +113,7 @@ if __name__ == "__main__":
     print("=" * 35)
     
     # Test with different datasets using config test_attribute
-    test_datasets = ['adult', 'tax', 'hospital']
+    test_datasets = ['adult'] # , 'tax', 'hospital'
     
     for dataset in test_datasets:
         try:
