@@ -12,7 +12,7 @@ from typing import List, Dict, Tuple, Any
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cell import Cell
-import fetch_row as fr
+from fetch_row import RTFDatabaseManager
 from InferenceGraph.bulid_hyperedges import HyperedgeBuilder
 from InferenceGraph.build_hypergraph import build_hypergraph_tree, GraphNode
 
@@ -43,9 +43,8 @@ def main():
 
     print("Fetching row data...")
     # Call the function from the imported module
-    with fr.RTFDatabaseManager('adult') as fr:
-        
-    row = fr.fetch_row(key)
+    with RTFDatabaseManager('adult') as fr:
+        row = fr.fetch_row(key)
     print(f"Row fetched for key {key}: {row['education']}")
 
     print("\nBuilding hyperedge map...")
